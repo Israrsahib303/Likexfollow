@@ -1,0 +1,293 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// --- 1. REQUIRED FILES ---
+if (file_exists(__DIR__ . '/../includes/helpers.php')) {
+    require_once __DIR__ . '/../includes/helpers.php';
+}
+if (file_exists(__DIR__ . '/../includes/db.php')) {
+    require_once __DIR__ . '/../includes/db.php'; 
+}
+
+// --- 2. USER BALANCE LOGIC ---
+$user_id = $_SESSION['user_id'] ?? 0;
+$user_balance = 0.00;
+
+if ($user_id > 0) {
+    if (function_exists('getUserBalance')) {
+        $user_balance = getUserBalance($user_id);
+    } else {
+        $stmt = $db->prepare("SELECT balance FROM users WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $user_balance = $stmt->fetchColumn() ?? 0.00;
+    }
+}
+
+// --- 3. SITE SETTINGS ---
+$site_name = $GLOBALS['settings']['site_name'] ?? 'SubHub';
+$site_logo = $GLOBALS['settings']['site_logo'] ?? '';
+$primary_color = '#2563eb'; 
+
+// --- 4. CURRENCY SETUP ---
+$curr_list = function_exists('getCurrencyList') ? getCurrencyList() : ['PKR' => ['rate'=>1, 'symbol'=>'Rs', 'flag'=>'🇵🇰', 'name'=>'Pakistani Rupee']];
+$curr_code = $_COOKIE['site_currency'] ?? 'PKR';
+if (!isset($curr_list[$curr_code])) $curr_code = 'PKR';
+
+$curr_data = $curr_list[$curr_code];
+$curr_flag = $curr_data['flag'];
+?>
+<?php
+// --- UNIVERSAL SEO LOADER ---
+require_once __DIR__ . '/../includes/db.php'; // Path adjust karein agar zaroorat ho
+
+// 1. Current Page ka naam nikalo
+$current_page = basename($_SERVER['PHP_SELF']);
+
+// 2. Database se SEO Data uthao
+$stmt = $db->prepare("SELECT * FROM site_seo WHERE page_name = ?");
+$stmt->execute([$current_page]);
+$seo = $stmt->fetch();
+
+// 3. Agar Database mein nahi hai, to Default values
+$meta_title = $seo['meta_title'] ?? "LikexFollow - Best SMM Panel";
+$meta_desc = $seo['meta_description'] ?? "Cheap SMM Panel for Instagram, TikTok, YouTube.";
+$meta_keys = $seo['meta_keywords'] ?? "smm panel, cheap followers, likexfollow";
+
+// 4. Open Graph (Social Media Sharing) Tags
+$og_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title><?= htmlspecialchars($meta_title) ?></title>
+    <meta name="description" content="<?= htmlspecialchars($meta_desc) ?>">
+    <meta name="keywords" content="<?= htmlspecialchars($meta_keys) ?>">
+    
+    <meta property="og:title" content="<?= htmlspecialchars($meta_title) ?>">
+    <meta property="og:description" content="<?= htmlspecialchars($meta_desc) ?>">
+    <meta property="og:url" content="<?= $og_url ?>">
+    <meta property="og:type" content="website">
+    
+    <link rel="stylesheet" href="assets/css/style.css">
+    ```
+
+---
+
+### **Step 3: AI Meta Tagger Cron (`includes/cron/auto_meta_tagger.php`)**
+Ye naya Cron Job hai. Ye script database check karega, agar kisi page (`index.php`, `login.php`) ke keywords/description khali hain, to ye AI ko bolega: *"Is page ke liye heavy SEO tags likh kar do"*.
+
+**Create File:** `includes/cron/auto_meta_tagger.php`
+
+```php
+<?php
+// File: includes/cron/auto_meta_tagger.php
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../AiEngine.php';
+
+echo "<h2>🔎 Scanning Pages for Missing SEO...</h2>";
+
+// 1. Aise pages dhoondo jinka SEO data khali hai
+$stmt = $db->query("SELECT * FROM site_seo WHERE meta_description IS NULL OR meta_keywords IS NULL OR meta_description = '' LIMIT 1");
+$page = $stmt->fetch();
+
+if (!$page) {
+    die("✅ All pages are fully optimized. Nothing to do.");
+}
+
+$pageName = $page['page_name'];
+echo "Processing Page: <strong>$pageName</strong><br>";
+
+// 2. AI Prompt Taiyar karein
+$ai = new AiEngine($db);
+$prompt = "Generate SEO Meta Tags for a page named '$pageName' for an SMM Panel website 'LikexFollow'.
+Output ONLY JSON format:
+{
+    \"title\": \"Catchy Title (60 chars)\",
+    \"description\": \"SEO Description (160 chars) including keywords like cheap, safe, instant.\",
+    \"keywords\": \"comma, separated, 10, high, cpc, keywords\"
+}";
+
+// 3. AI se Content Mangwayen
+$response = $ai->generateContent($prompt);
+
+// JSON Clean up (Agar AI ne ```json laga diya ho)
+$response = str_replace(['```json', '```'], '', $response);
+$data = json_decode($response, true);
+
+if ($data && isset($data['title'])) {
+    
+    // 4. Update Database
+    $update = $db->prepare("UPDATE site_seo SET meta_title=?, meta_description=?, meta_keywords=? WHERE id=?");
+    $update->execute([$data['title'], $data['description'], $data['keywords'], $page['id']]);
+    
+    echo "✅ Success! Updated SEO for $pageName.<br>";
+    echo "Title: {$data['title']}<br>";
+    echo "Keywords: {$data['keywords']}";
+
+} else {
+    echo "❌ Failed to parse AI response. Raw: " . htmlspecialchars($response);
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <meta name="theme-color" content="<?php echo $primary_color; ?>">
+    <meta name="msapplication-navbutton-color" content="<?php echo $primary_color; ?>">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <title><?= htmlspecialchars($GLOBALS['settings']['seo_title'] ?? $GLOBALS['settings']['site_name']) ?></title>
+    <meta name="description" content="<?= htmlspecialchars($GLOBALS['settings']['seo_desc'] ?? '') ?>">
+    <meta name="keywords" content="<?= htmlspecialchars($GLOBALS['settings']['seo_keywords'] ?? '') ?>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <?php if (!empty($GLOBALS['settings']['onesignal_app_id'])): ?>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      
+      // Save ID to DB Helper
+      function syncOneSignalId(playerId) {
+          if(!playerId) return;
+          console.log("Syncing ID to DB:", playerId);
+          fetch('save_device.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: 'player_id=' + playerId
+          }).then(res => res.text())
+            .then(data => console.log("DB Response:", data))
+            .catch(err => console.error("DB Sync Error:", err));
+      }
+
+      OneSignalDeferred.push(async function(OneSignal) {
+        // 1. Enable Debugging (Is se errors F12 console mein show honge)
+        OneSignal.Debug.setLogLevel("trace");
+
+        await OneSignal.init({
+          appId: "<?php echo $GLOBALS['settings']['onesignal_app_id']; ?>",
+          <?php if(!empty($GLOBALS['settings']['onesignal_safari_id'])): ?>
+          safari_web_id: "<?php echo $GLOBALS['settings']['onesignal_safari_id']; ?>",
+          <?php endif; ?>
+          notifyButton: { enable: false }, // Hide default bell (Auto Prompt Only)
+          allowLocalhostAsSecureOrigin: true,
+          
+          // 2. CRITICAL FIX: Explicit Service Worker Path (Yeh line bohot zaroori hai)
+          serviceWorkerPath: "OneSignalSDKWorker.js", 
+          serviceWorkerParam: { scope: "/" }
+        });
+
+        // 3. Logic: Force Prompt if not subscribed
+        if (!OneSignal.User.PushSubscription.optedIn) {
+            console.log("User Not Subscribed. Showing Prompt...");
+            try {
+                await OneSignal.Slidedown.promptPush();
+            } catch(e) { console.error("Prompt Error:", e); }
+        } else {
+            console.log("User Already Subscribed. ID:", OneSignal.User.PushSubscription.id);
+            syncOneSignalId(OneSignal.User.PushSubscription.id);
+        }
+
+        // 4. Listen for Subscription Change (Jab user Allow click kare)
+        OneSignal.User.PushSubscription.addEventListener("change", function(event) {
+            console.log("Subscription Changed:", event);
+            if (event.current.optedIn) {
+                const newId = OneSignal.User.PushSubscription.id;
+                console.log("New Subscription ID:", newId);
+                syncOneSignalId(newId);
+                alert("✅ Notifications Activated!");
+            }
+        });
+      });
+    </script>
+    <?php endif; ?>
+
+    <style>
+        :root {
+            /* --- Theme Colors --- */
+            --primary: <?= $GLOBALS['settings']['theme_primary'] ?? '#4f46e5' ?>;
+            --secondary: <?= $GLOBALS['settings']['theme_secondary'] ?? '#7c3aed' ?>;
+            --bg-body: <?= $GLOBALS['settings']['theme_bg'] ?? '#f8fafc' ?>;
+            --card-bg: <?= $GLOBALS['settings']['theme_card_bg'] ?? '#ffffff' ?>;
+            --text-main: <?= $GLOBALS['settings']['theme_text'] ?? '#0f172a' ?>;
+            --radius: <?= $GLOBALS['settings']['theme_radius'] ?? '16' ?>px;
+            --shadow-opacity: <?= $GLOBALS['settings']['theme_shadow'] ?? '0.05' ?>;
+            
+            /* --- Layout Dimensions --- */
+            --nav-height: -10px;         
+            --container-width: 700px;
+        }
+
+        /* --- CSS Reset --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-size: 15px;
+            line-height: 1.6;
+            padding-top: calc(var(--nav-height) + 20px);
+            min-height: 100vh;
+            overflow-x: hidden; 
+        }
+
+        a { text-decoration: none; color: inherit; transition: 0.2s ease-in-out; }
+        ul { list-style: none; }
+        button { font-family: inherit; cursor: pointer; }
+        img { max-width: 100%; display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .main-content-wrapper {
+            animation: fadeIn 0.5s ease-out forwards;
+            width: 100%;
+            max-width: var(--container-width);
+            margin: 0 auto;
+            padding: 0 20px; 
+        }
+        
+        /* Apply Glassmorphism if enabled */
+        <?php if(($GLOBALS['settings']['enable_glass'] ?? '1') == '1'): ?>
+        .card, .modern-card, .tool-card {
+            background: rgba(255, 255, 255, 0.85) !important;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        <?php endif; ?>
+    
+        /* Apply Radius & Shadow */
+        .card, .btn, .form-control, .modern-card {
+            border-radius: var(--radius) !important;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0, var(--shadow-opacity)) !important;
+        }
+    
+        /* Custom CSS from Admin */
+        <?= $GLOBALS['settings']['custom_css'] ?? '' ?>
+
+        /* --- Custom Scrollbar --- */
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    </style>
+</head>
+<body>
+
+<?php include '_nav.php'; ?>
+
+<div class="main-content-wrapper">
