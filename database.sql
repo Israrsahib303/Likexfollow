@@ -703,7 +703,7 @@ CREATE TABLE `settings` (
   `setting_value` text NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `setting_key` (`setting_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=1617 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1620 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `settings` VALUES('253','promo_codes_enabled','1');
 INSERT INTO `settings` VALUES('477','google_login','1');
@@ -775,8 +775,8 @@ INSERT INTO `settings` VALUES('1570','bg_color','#1d1d1d');
 INSERT INTO `settings` VALUES('1571','card_color','#000000');
 INSERT INTO `settings` VALUES('1572','text_color','#000000');
 INSERT INTO `settings` VALUES('1573','text_muted_color','#000000');
-INSERT INTO `settings` VALUES('1615','gh_repo','Israrsahib303/Likexfollow');
-INSERT INTO `settings` VALUES('1616','gh_branch','main');
+INSERT INTO `settings` VALUES('1618','gh_repo','Israrsahib303/Likexfollow');
+INSERT INTO `settings` VALUES('1619','gh_branch','main');
 
 
 CREATE TABLE `site_seo` (
