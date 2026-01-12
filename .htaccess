@@ -1,0 +1,37 @@
+# Prevent Directory Listing
+Options -Indexes
+
+# Rewrite Engine On (Short URLs)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Boss Login Shortcut (yoursite.com/boss -> boss_login.php)
+    RewriteRule ^boss/?$ boss_login.php [L,NC,QSA]
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<Files "error_log">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "beast8.sql">
+    Order allow,deny
+    Deny from all
+</Files>
+RewriteEngine On
+
+# Service Page Rewrite (URL: domain.com/service/123/title)
+RewriteRule ^service/([0-9]+)/?.*$ service.php?id=$1 [L,QSA]
+
+# Blog Page Rewrite (URL: domain.com/blog/post-slug)
+RewriteRule ^blog/([a-zA-Z0-9-]+)$ blog_view.php?slug=$1 [L,QSA]
+
+# Sitemap
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
