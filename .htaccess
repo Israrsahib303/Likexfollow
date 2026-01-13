@@ -1,3 +1,15 @@
+Options +FollowSymLinks -MultiViews
+RewriteEngine On
+
+# 1. Blog Pretty URL (likexfollow.com/blog/slug)
+RewriteRule ^blog/([a-zA-Z0-9-]+)$ blog_view.php?slug=$1 [L,QSA]
+
+# 2. Sitemap Rewrite (likexfollow.com/sitemap.xml -> sitemap.php)
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# 3. Force HTTPS (Optional but Recommended)
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # Prevent Directory Listing
 Options -Indexes
 
