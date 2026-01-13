@@ -54,337 +54,491 @@ $history = $db->query("SELECT * FROM ai_settings ORDER BY id DESC LIMIT 5")->fet
 ?>
 
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
+    /* --- RESET & VARIABLES --- */
+    * { box-sizing: border-box; outline: none; }
+    
     :root {
-        --primary: #4f46e5;
-        --primary-dark: #4338ca;
-        --secondary: #6366f1;
-        --surface: #ffffff;
-        --surface-glass: rgba(255, 255, 255, 0.85);
-        --border: #e2e8f0;
+        --primary: #7c3aed;       /* Royal Purple */
+        --primary-dark: #5b21b6;  /* Darker Purple */
+        --primary-light: #ddd6fe; /* Light Lavender */
+        --accent: #f43f5e;        /* Rose Red for alerts */
+        --success: #10b981;       /* Emerald Green */
+        --bg-body: #f8fafc;       /* Clean White/Grey Background */
+        --card-bg: #ffffff;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+        --shadow-soft: 0 10px 40px -10px rgba(124, 58, 237, 0.15);
+        --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
     }
 
     body {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #f3f4f6;
-        background-image: 
-            radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
-        background-attachment: fixed;
+        font-family: 'Outfit', sans-serif;
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
     }
 
-    /* --- Animations --- */
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); } }
-    @keyframes border-dance { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-
-    .animate-enter { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    .animate-enter-delay { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
-
-    /* --- Glass Panels --- */
-    .glass-panel {
-        background: var(--surface-glass);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.6);
-        box-shadow: 
-            0 4px 6px -1px rgba(0, 0, 0, 0.05),
-            0 10px 15px -3px rgba(0, 0, 0, 0.05),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    /* --- BACKGROUND DECORATION --- */
+    .bg-blobs {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        overflow: hidden;
+        pointer-events: none;
+    }
+    .blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.4;
+        animation: floatBlob 10s infinite alternate cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: #c4b5fd; }
+    .blob-2 { bottom: -10%; left: -10%; width: 400px; height: 400px; background: #a78bfa; }
+    
+    @keyframes floatBlob {
+        0% { transform: translate(0, 0) scale(1); }
+        100% { transform: translate(30px, 50px) scale(1.1); }
     }
 
-    /* --- Provider Cards --- */
-    .provider-card {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 2px solid transparent;
+    /* --- ANIMATIONS --- */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulseSoft { 0% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(124, 58, 237, 0); } 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); } }
+
+    .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+    /* --- LAYOUT CONTAINER --- */
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    /* --- HEADER --- */
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 40px;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .page-title h1 {
+        font-size: 3rem;
+        font-weight: 800;
+        letter-spacing: -1px;
+        background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+    }
+    .page-title p { color: var(--text-muted); font-size: 1.1rem; margin-top: 5px; font-weight: 500; }
+
+    /* Status Badge */
+    .status-badge {
         background: white;
+        padding: 10px 20px;
+        border-radius: 50px;
+        box-shadow: var(--shadow-soft);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    .status-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        position: relative;
+    }
+    .dot-online { background: var(--success); }
+    .dot-offline { background: var(--accent); }
+    .dot-wave {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        border-radius: 50%;
+        animation: pulseSoft 2s infinite;
+        z-index: -1;
+    }
+
+    /* --- MAIN GRID --- */
+    .main-grid {
+        display: grid;
+        grid-template-columns: 7fr 5fr;
+        gap: 40px;
+    }
+    @media (max-width: 1024px) {
+        .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* --- CARDS --- */
+    .ui-card {
+        background: var(--card-bg);
+        border-radius: 24px;
+        padding: 35px;
+        box-shadow: var(--shadow-card);
+        border: 1px solid rgba(255,255,255,0.6);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
         position: relative;
         overflow: hidden;
     }
-    .provider-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 20px 40px -5px rgba(99, 102, 241, 0.15);
+    .ui-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px -5px rgba(0,0,0,0.1);
     }
-    /* When Checked */
-    .peer:checked + .provider-card {
-        border-color: var(--primary);
-        background: #f5f3ff;
-        box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.2);
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 25px;
     }
-    .peer:checked + .provider-card::after {
-        content: '\f058'; /* FontAwesome Check Circle */
-        font-family: "Font Awesome 6 Free";
-        font-weight: 900;
-        position: absolute;
-        top: 10px;
-        right: 10px;
+    .icon-box {
+        width: 50px; height: 50px;
+        background: var(--primary-light);
         color: var(--primary);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 1.2rem;
     }
+    .card-title { font-size: 1.4rem; font-weight: 700; color: var(--text-main); }
 
-    /* --- Inputs --- */
-    .tech-input {
-        transition: all 0.3s ease;
-        background: white;
+    /* --- PROVIDER SELECTOR --- */
+    .provider-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
     }
-    .tech-input:focus {
-        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-        border-color: var(--primary);
-        transform: translateY(-1px);
-    }
-
-    /* --- Status Dot --- */
-    .status-dot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; z-index: 2; }
-    .status-wave { position: absolute; width: 100%; height: 100%; border-radius: 50%; animation: pulse-glow 2s infinite; z-index: 1; }
-    .dot-success { background: #10b981; } .wave-success { color: #10b981; }
-    .dot-danger { background: #ef4444; }
-
-    /* --- Code Editor Feel --- */
-    .editor-wrapper {
-        background: #1e293b; /* Slate 800 */
-        border: 1px solid #334155;
-        box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
-    }
-    .editor-textarea {
-        background: transparent;
-        color: #e2e8f0;
-        font-family: 'JetBrains Mono', monospace;
-        line-height: 1.6;
-    }
-    .editor-textarea::placeholder { color: #64748b; }
-    .editor-header {
-        background: #0f172a;
-        border-bottom: 1px solid #334155;
-    }
+    .provider-label { cursor: pointer; position: relative; }
+    .provider-label input { display: none; }
     
-    /* --- Badges & Text --- */
-    .badge-gradient {
-        background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
+    .provider-box {
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.2s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+    }
+    .provider-box img { width: 40px; height: 40px; margin-bottom: 10px; object-fit: contain; }
+    .provider-box i { font-size: 30px; margin-bottom: 10px; }
+    .p-name { display: block; font-weight: 700; font-size: 0.9rem; color: var(--text-main); }
+    .p-tag { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-top: 5px; }
+
+    /* Checked State */
+    .provider-label input:checked + .provider-box {
+        border-color: var(--primary);
+        background: #f5f3ff; /* Very light purple */
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+    }
+    .provider-label input:checked + .provider-box .p-name { color: var(--primary); }
+    
+    /* --- INPUT FIELDS --- */
+    .input-group { position: relative; }
+    .input-field {
+        width: 100%;
+        padding: 18px 20px;
+        padding-left: 55px;
+        border-radius: 16px;
+        border: 2px solid var(--border-color);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.95rem;
+        background: #f8fafc;
+        transition: all 0.3s ease;
+        color: var(--text-main);
+    }
+    .input-field:focus {
+        background: #fff;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+    }
+    .input-icon {
+        position: absolute;
+        left: 20px; top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        transition: 0.3s;
+    }
+    .input-field:focus + .input-icon { color: var(--primary); }
+
+    /* --- CODE EDITOR --- */
+    .editor-container {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        height: 400px; /* Fixed height for consistency */
+        background: #1e1e1e; /* VS Code dark */
+    }
+    .editor-bar {
+        background: #252526;
+        padding: 10px 15px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        border-bottom: 1px solid #333;
+    }
+    .window-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .wd-red { background: #ff5f56; } .wd-yellow { background: #ffbd2e; } .wd-green { background: #27c93f; }
+    
+    .editor-textarea {
+        flex-grow: 1;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        border: none;
+        padding: 20px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        resize: none;
+    }
+    .editor-textarea::placeholder { color: #555; }
+
+    /* --- HISTORY LOGS --- */
+    .history-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .history-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px dashed var(--border-color);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .h-info { display: flex; align-items: center; gap: 12px; }
+    .h-icon {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+    }
+    .h-details p { margin: 0; font-weight: 600; font-size: 0.9rem; }
+    .h-details span { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+    
+    .status-pill {
+        font-size: 0.75rem;
+        font-weight: 800;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+    }
+    .st-active { background: #d1fae5; color: #059669; }
+    .st-revoked { background: #f1f5f9; color: #64748b; }
+
+    /* --- SUBMIT BUTTON --- */
+    .btn-submit {
+        width: 100%;
+        background: linear-gradient(135deg, var(--primary) 0%, #6d28d9 100%);
         color: white;
+        border: none;
+        padding: 18px;
+        border-radius: 16px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 25px;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.5);
     }
-    .text-gradient {
-        background: linear-gradient(135deg, #1e293b 0%, #4f46e5 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 35px -5px rgba(124, 58, 237, 0.6);
     }
+    .btn-submit i { transition: transform 0.3s; }
+    .btn-submit:hover i { transform: rotate(15deg); }
+
+    /* --- ALERT MESSAGES --- */
+    .msg-box {
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-weight: 600;
+        animation: fadeInUp 0.4s ease;
+    }
+    .msg-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .msg-error { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
+
 </style>
 
-<div class="max-w-7xl mx-auto px-4 py-12">
+<!-- Background Decoration -->
+<div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+</div>
 
-    <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 animate-enter">
-        <div class="relative">
-            <div class="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
-            <h1 class="text-5xl font-extrabold tracking-tight text-slate-800 mb-2">
-                <span class="text-gradient">AI Brain Center</span>
-            </h1>
-            <p class="text-slate-500 text-lg font-medium max-w-xl">
-                Orchestrate your SEO intelligence. Configure models, manage keys, and train your digital workforce.
-            </p>
+<div class="dashboard-container">
+    
+    <!-- HEADER -->
+    <div class="header-section animate-enter">
+        <div class="page-title">
+            <h1>AI Brain Center</h1>
+            <p>Orchestrate your Neural Networks & Training Data</p>
         </div>
         
-        <div class="glass-panel px-6 py-4 rounded-2xl flex items-center gap-4 min-w-[240px]">
-            <div class="flex-1 text-right">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">System Status</p>
-                <p class="text-sm font-bold flex items-center justify-end gap-2 <?= $active ? 'text-emerald-600' : 'text-rose-500' ?>">
-                    <?php if($active): ?>
-                        <?= ucfirst($active['provider']) ?> Neural Net Active
-                    <?php else: ?>
-                        System Disconnected
-                    <?php endif; ?>
-                </p>
+        <div class="status-badge">
+            <div class="status-dot <?= $active ? 'dot-online' : 'dot-offline' ?>">
+                <?php if($active): ?><div class="dot-wave"></div><?php endif; ?>
             </div>
-            <div class="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shadow-inner">
-                <div class="status-dot-wrapper">
-                    <span class="status-dot <?= $active ? 'dot-success' : 'dot-danger' ?>"></span>
-                    <?php if($active): ?><span class="status-wave wave-success"></span><?php endif; ?>
-                </div>
-            </div>
+            <span>
+                <?= $active ? strtoupper($active['provider']) . " SYSTEM ACTIVE" : "SYSTEM DISCONNECTED" ?>
+            </span>
         </div>
     </div>
 
+    <!-- NOTIFICATIONS -->
     <?php if($msg): ?>
-    <div class="mb-10 animate-enter">
-        <div class="p-4 rounded-xl flex items-center gap-4 shadow-lg <?= $msgType == 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-rose-50 text-rose-800 border border-rose-100' ?>">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center <?= $msgType == 'success' ? 'bg-emerald-100' : 'bg-rose-100' ?>">
-                <i class="fa-solid <?= $msgType == 'success' ? 'fa-check' : 'fa-xmark' ?>"></i>
-            </div>
-            <div>
-                <h4 class="font-bold"><?= $msgType == 'success' ? 'Success' : 'Error Occurred' ?></h4>
-                <p class="text-sm opacity-90"><?= $msg ?></p>
-            </div>
+        <div class="msg-box <?= $msgType == 'success' ? 'msg-success' : 'msg-error' ?>">
+            <i class="fa-solid <?= $msgType == 'success' ? 'fa-check-circle' : 'fa-triangle-exclamation' ?> text-xl"></i>
+            <span><?= $msg ?></span>
         </div>
-    </div>
     <?php endif; ?>
 
-    <form method="POST" class="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-enter-delay">
-        
-        <div class="xl:col-span-7 space-y-8">
+    <form method="POST">
+        <div class="main-grid">
             
-            <div class="glass-panel rounded-3xl p-8 relative overflow-hidden group">
-                <div class="absolute top-0 right-0 p-6 opacity-5 transition-opacity group-hover:opacity-10">
-                    <i class="fa-solid fa-microchip text-8xl text-indigo-600"></i>
-                </div>
-
-                <h3 class="text-xl font-bold text-slate-800 mb-8 flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 font-mono">01</span>
-                    Select Intelligence Provider
-                </h3>
+            <!-- LEFT COLUMN: CONFIG -->
+            <div class="space-y-8 animate-enter delay-1">
                 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <label class="cursor-pointer">
-                        <input type="radio" name="provider" value="gemini" class="peer sr-only" <?= ($active['provider']=='gemini')?'checked':'' ?>>
-                        <div class="provider-card p-6 rounded-2xl h-full flex flex-col items-center justify-between text-center border-slate-200">
-                            <div class="mb-4 bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" class="h-6 w-auto">
-                            </div>
-                            <div>
-                                <div class="font-bold text-slate-800 text-lg">Google Gemini</div>
-                                <div class="text-xs text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full mt-2 inline-block">Free Tier</div>
-                            </div>
-                        </div>
-                    </label>
-
-                    <label class="cursor-pointer">
-                        <input type="radio" name="provider" value="openai" class="peer sr-only" <?= ($active['provider']=='openai')?'checked':'' ?>>
-                        <div class="provider-card p-6 rounded-2xl h-full flex flex-col items-center justify-between text-center border-slate-200">
-                             <div class="mb-4 bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" class="h-8 w-auto">
-                            </div>
-                            <div>
-                                <div class="font-bold text-slate-800 text-lg">OpenAI GPT-4</div>
-                                <div class="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full mt-2 inline-block">Paid API</div>
-                            </div>
-                        </div>
-                    </label>
-
-                    <label class="cursor-pointer">
-                        <input type="radio" name="provider" value="groq" class="peer sr-only" <?= ($active['provider']=='groq')?'checked':'' ?>>
-                        <div class="provider-card p-6 rounded-2xl h-full flex flex-col items-center justify-between text-center border-slate-200">
-                             <div class="mb-4 bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center">
-                                <i class="fa-solid fa-bolt text-2xl text-amber-500"></i>
-                            </div>
-                            <div>
-                                <div class="font-bold text-slate-800 text-lg">Groq Llama 3</div>
-                                <div class="text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1 rounded-full mt-2 inline-block">High Speed</div>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-
-            <div class="glass-panel rounded-3xl p-8">
-                <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 font-mono">02</span>
-                    Authenticate Connection
-                </h3>
-                
-                <div class="relative group">
-                    <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                        <i class="fa-solid fa-key text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                <!-- 1. PROVIDER CARD -->
+                <div class="ui-card">
+                    <div class="card-header">
+                        <div class="icon-box"><i class="fa-solid fa-microchip"></i></div>
+                        <span class="card-title">Select Provider</span>
                     </div>
-                    <input type="password" name="api_key" value="<?= $active['api_key'] ?? '' ?>" 
-                           class="tech-input w-full pl-14 pr-4 py-5 rounded-xl border border-slate-200 outline-none font-mono text-sm tracking-wide text-slate-700 placeholder-slate-400" 
-                           placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" required>
-                    <div class="absolute inset-y-0 right-0 pr-5 flex items-center">
-                        <span class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded border border-slate-200">AES-256</span>
-                    </div>
-                </div>
-                <div class="mt-4 flex items-center gap-2 text-xs text-slate-500 font-medium">
-                    <i class="fa-solid fa-shield-halved text-emerald-500"></i>
-                    <span>Keys are encrypted at rest. Never shared with third parties.</span>
-                </div>
-            </div>
-            
-            <div class="glass-panel rounded-3xl overflow-hidden border border-slate-200/60">
-                <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-700">🔌 Connection Logs</h3>
-                    <span class="text-xs font-mono text-slate-400">LAST 5 ENTRIES</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50/80 text-slate-500 text-xs uppercase font-bold tracking-wider">
-                            <tr>
-                                <th class="p-5">Provider</th>
-                                <th class="p-5">Key Signature</th>
-                                <th class="p-5 text-right">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 text-sm">
-                            <?php foreach($history as $row): ?>
-                            <tr class="hover:bg-slate-50 transition group">
-                                <td class="p-5 font-bold text-slate-700 capitalize flex items-center gap-3">
-                                    <div class="w-2 h-2 rounded-full <?= $row['is_active'] ? 'bg-emerald-500' : 'bg-slate-300' ?>"></div>
-                                    <?= $row['provider'] ?>
-                                </td>
-                                <td class="p-5 font-mono text-slate-500 group-hover:text-slate-700">
-                                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 text-xs">
-                                        <?= substr($row['api_key'], 0, 4) ?>...<?= substr($row['api_key'], -4) ?>
-                                    </span>
-                                </td>
-                                <td class="p-5 text-right">
-                                    <?php if($row['is_active']): ?>
-                                        <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs shadow-sm shadow-emerald-200">Active</span>
-                                    <?php else: ?>
-                                        <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-500 font-bold text-xs">Revoked</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </div>
-
-        <div class="xl:col-span-5 flex flex-col h-full">
-            <div class="glass-panel rounded-3xl p-1 flex-grow flex flex-col h-full shadow-2xl shadow-indigo-500/10">
-                
-                <div class="p-6 pb-2">
-                    <h3 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        <span class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 font-mono">03</span>
-                        System Training
-                    </h3>
-                    <p class="text-slate-500 text-sm mb-4 pl-14">Define the persona, rules, and behavioral constraints for the AI model.</p>
-                </div>
-
-                <div class="flex-grow flex flex-col mx-6 mb-6 rounded-xl overflow-hidden editor-wrapper">
-                    <div class="editor-header h-10 flex items-center px-4 justify-between select-none">
-                        <div class="flex gap-2">
-                            <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
-                            <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                            <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
-                        </div>
-                        <div class="text-xs text-slate-400 font-mono">system_prompt.txt</div>
-                        <div class="w-10"></div> </div>
                     
-                    <textarea name="system_prompt" 
-                              class="editor-textarea w-full flex-grow p-4 resize-none outline-none text-sm"
-                              placeholder="Describe your AI persona here..."><?= htmlspecialchars($current_prompt) ?></textarea>
-                    
-                    <div class="bg-slate-800/50 px-4 py-2 text-[10px] text-slate-500 font-mono border-t border-slate-700 flex justify-between">
-                        <span>Ln 1, Col 1</span>
-                        <span>UTF-8</span>
-                    </div>
-                </div>
-
-                <div class="px-6 pb-8">
-                    <button type="submit" class="group w-full py-4 rounded-xl badge-gradient font-bold text-white shadow-lg shadow-indigo-500/40 hover:shadow-indigo-500/60 transition-all transform hover:-translate-y-1 hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-3 text-lg overflow-hidden relative">
-                        <div class="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] group-hover:animate-[shimmer_1s_infinite]"></div>
+                    <div class="provider-grid">
+                        <!-- Gemini -->
+                        <label class="provider-label">
+                            <input type="radio" name="provider" value="gemini" <?= ($active['provider']=='gemini')?'checked':'' ?>>
+                            <div class="provider-box">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" alt="Gemini">
+                                <span class="p-name">Gemini</span>
+                                <span class="p-tag">Fastest</span>
+                            </div>
+                        </label>
                         
-                        <i class="fa-solid fa-bolt text-yellow-300 group-hover:animate-pulse"></i>
-                        <span>Save & Initialize Brain</span>
-                    </button>
-                    <p class="text-center text-xs text-slate-400 mt-4">
-                        Action will reset current sessions and reload model weights.
+                        <!-- OpenAI -->
+                        <label class="provider-label">
+                            <input type="radio" name="provider" value="openai" <?= ($active['provider']=='openai')?'checked':'' ?>>
+                            <div class="provider-box">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" alt="GPT">
+                                <span class="p-name">OpenAI</span>
+                                <span class="p-tag">Robust</span>
+                            </div>
+                        </label>
+                        
+                        <!-- Groq -->
+                        <label class="provider-label">
+                            <input type="radio" name="provider" value="groq" <?= ($active['provider']=='groq')?'checked':'' ?>>
+                            <div class="provider-box">
+                                <i class="fa-solid fa-bolt text-amber-500"></i>
+                                <span class="p-name">Groq</span>
+                                <span class="p-tag">Instant</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 2. API KEY CARD -->
+                <div class="ui-card">
+                    <div class="card-header">
+                        <div class="icon-box"><i class="fa-solid fa-key"></i></div>
+                        <span class="card-title">Authentication</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="password" name="api_key" value="<?= $active['api_key'] ?? '' ?>" class="input-field" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx" required>
+                        <i class="fa-solid fa-lock input-icon"></i>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3 ml-1">
+                        <i class="fa-solid fa-shield-halved mr-1 text-emerald-500"></i> 
+                        Keys are encrypted using AES-256 standards.
                     </p>
                 </div>
-            </div>
-        </div>
 
+                <!-- 3. HISTORY CARD -->
+                <div class="ui-card">
+                    <div class="card-header">
+                        <div class="icon-box"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                        <span class="card-title">Recent Logs</span>
+                    </div>
+                    <ul class="history-list">
+                        <?php foreach($history as $row): ?>
+                        <li class="history-item">
+                            <div class="h-info">
+                                <div class="h-icon">
+                                    <i class="fa-solid fa-server"></i>
+                                </div>
+                                <div class="h-details">
+                                    <p><?= ucfirst($row['provider']) ?> Connection</p>
+                                    <span>KEY: ****<?= substr($row['api_key'], -4) ?></span>
+                                </div>
+                            </div>
+                            <span class="status-pill <?= $row['is_active'] ? 'st-active' : 'st-revoked' ?>">
+                                <?= $row['is_active'] ? 'Active' : 'Revoked' ?>
+                            </span>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: TRAINING -->
+            <div class="animate-enter delay-2">
+                <div class="ui-card" style="height: 100%; display: flex; flex-direction: column;">
+                    <div class="card-header">
+                        <div class="icon-box"><i class="fa-solid fa-brain"></i></div>
+                        <span class="card-title">System Training</span>
+                    </div>
+                    <p style="margin-bottom: 20px; color: var(--text-muted); font-size: 0.95rem;">
+                        Define the AI's persona, rules, and output format.
+                    </p>
+
+                    <div class="editor-container">
+                        <div class="editor-bar">
+                            <div class="window-dot wd-red"></div>
+                            <div class="window-dot wd-yellow"></div>
+                            <div class="window-dot wd-green"></div>
+                            <span style="margin-left: auto; color: #666; font-size: 10px; font-family: monospace;">system_prompt.txt</span>
+                        </div>
+                        <textarea name="system_prompt" class="editor-textarea" placeholder="Enter system instructions..."><?= htmlspecialchars($current_prompt) ?></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Save & Initialize Brain
+                    </button>
+                </div>
+            </div>
+
+        </div>
     </form>
 </div>
 
