@@ -103,6 +103,17 @@ $master_menu = [
         ]
     ],
     [
+        'label' => 'SEO Center',
+        'link' => '#',
+        'icon' => 'fa-search',
+        'color' => '#8b5cf6', // Violet (Requested Color)
+        'children' => [
+            ['label' => 'SEO Toolkit', 'link' => 'seo_tools.php', 'icon' => 'fa-search-dollar'],
+            ['label' => 'SEO Manager', 'link' => 'seo_manager.php', 'icon' => 'fa-sliders-h'],
+            ['label' => 'SEO Logs', 'link' => 'seo_logs.php', 'icon' => 'fa-clipboard-list']
+        ]
+    ],
+    [
         'label' => 'System Core',
         'link' => '#',
         'icon' => 'fa-cogs',
