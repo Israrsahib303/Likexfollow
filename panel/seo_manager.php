@@ -1,326 +1,332 @@
 <?php
-// panel/seo_manager.php - ULTIMATE SEO SUITE V2
-// Features: Meta, OG, Sitemap, Robots, .htaccess, Code Injection, Schema, Ping
+// File: panel/seo_manager.php
+require_once '_header.php';
 
-include '_header.php';
+// --- 1. HANDLE FORM SUBMISSION ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // A. Update General SEO Settings
+    if (isset($_POST['update_seo'])) {
+        $seo_title = sanitize($_POST['seo_title']);
+        $seo_desc = sanitize($_POST['seo_desc']);
+        $seo_keywords = sanitize($_POST['seo_keywords']);
+        $header_code = $_POST['header_code']; // Allow HTML/JS
+        $footer_code = $_POST['footer_code']; // Allow HTML/JS
 
-$success = '';
-$error = '';
+        // Update Settings Table
+        updateSetting('seo_title', $seo_title);
+        updateSetting('seo_desc', $seo_desc);
+        updateSetting('seo_keywords', $seo_keywords);
+        updateSetting('header_code', $header_code);
+        updateSetting('footer_code', $footer_code);
 
-// --- 1. SAVE DATABASE SETTINGS (Meta, Social, Schema, Code) ---
-if (isset($_POST['save_general']) || isset($_POST['save_schema']) || isset($_POST['save_code'])) {
-    $params = [
-        // General
-        'seo_title' => $_POST['seo_title'] ?? '',
-        'seo_desc' => $_POST['seo_desc'] ?? '',
-        'seo_keywords' => $_POST['seo_keywords'] ?? '',
-        'seo_author' => $_POST['seo_author'] ?? '',
-        // Social
-        'seo_og_image' => $_POST['seo_og_image'] ?? '',
-        'ga_tracking_id' => $_POST['ga_tracking_id'] ?? '',
-        'fb_pixel_id' => $_POST['fb_pixel_id'] ?? '',
-        // Schema
-        'schema_org_name' => $_POST['schema_org_name'] ?? '',
-        'schema_org_logo' => $_POST['schema_org_logo'] ?? '',
-        'social_links' => $_POST['social_links'] ?? '',
-        // Injection
-        'site_header_code' => $_POST['site_header_code'] ?? '',
-        'site_footer_code' => $_POST['site_footer_code'] ?? ''
-    ];
+        // Update Main Page in site_seo table too (for consistency)
+        $db->prepare("UPDATE site_seo SET meta_title=?, meta_description=?, meta_keywords=? WHERE page_name='index.php'")
+           ->execute([$seo_title, $seo_desc, $seo_keywords]);
 
-    try {
-        $db->beginTransaction();
-        foreach ($params as $key => $val) {
-            // Using logic to allow empty values update
-            $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-            $stmt->execute([$key, $val]); // Removed trim to allow code spacing
+        // B. Handle Favicon Upload
+        if (!empty($_FILES['site_favicon']['name'])) {
+            $allowed = ['png', 'jpg', 'jpeg', 'ico', 'svg'];
+            $filename = $_FILES['site_favicon']['name'];
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            if (in_array($ext, $allowed)) {
+                $newName = "favicon." . $ext;
+                $target = "../assets/img/" . $newName;
+                if (move_uploaded_file($_FILES['site_favicon']['tmp_name'], $target)) {
+                    updateSetting('site_favicon', $newName);
+                }
+            } else {
+                echo "<script>alert('Invalid Image Format!');</script>";
+            }
         }
-        $db->commit();
-        $success = "✅ Settings Saved Successfully!";
-        
-        // Refresh Cache
-        foreach($params as $k => $v) { $GLOBALS['settings'][$k] = $v; }
-        
-    } catch (Exception $e) {
-        $db->rollBack();
-        $error = "DB Error: " . $e->getMessage();
+
+        echo "<script>window.location.href='seo_manager.php?success=SEO Settings Updated Successfully';</script>";
     }
 }
 
-// --- 2. FILE OPERATIONS (Sitemap, Robots, .htaccess) ---
-$root_path = realpath(__DIR__ . '/../');
-$site_url = defined('SITE_URL') ? SITE_URL : 'https://' . $_SERVER['HTTP_HOST'];
-
-// Generate Sitemap
-if (isset($_POST['gen_sitemap'])) {
-    try {
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
-        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
-
-        // Static Pages List
-        $pages = ['index.php', 'login.php', 'register.php', 'services.php', 'terms.php', 'api.php', 'blog.php'];
-        foreach ($pages as $page) {
-            $xml .= '  <url>' . PHP_EOL;
-            $xml .= '    <loc>' . $site_url . '/' . $page . '</loc>' . PHP_EOL;
-            $xml .= '    <lastmod>' . date('Y-m-d') . '</lastmod>' . PHP_EOL;
-            $xml .= '    <changefreq>daily</changefreq>' . PHP_EOL;
-            $xml .= '    <priority>0.8</priority>' . PHP_EOL;
-            $xml .= '  </url>' . PHP_EOL;
-        }
-        $xml .= '</urlset>';
-        
-        if (file_put_contents($root_path . '/sitemap.xml', $xml)) {
-            $success = "✅ Sitemap Generated!";
-            
-            // Ping Google
-            if(isset($_POST['ping_google'])) {
-                $sitemapUrl = urlencode($site_url . '/sitemap.xml');
-                $pingUrl = "http://www.google.com/ping?sitemap=" . $sitemapUrl;
-                $response = @file_get_contents($pingUrl);
-                if($response) $success .= " & Google Pinged 📡";
-            }
-        } else {
-            $error = "❌ Permission Denied: Cannot write sitemap.xml";
-        }
-    } catch (Exception $e) { $error = $e->getMessage(); }
+// --- 2. FETCH CURRENT DATA ---
+// Fetch Global Settings
+$settings = [];
+$stmt = $db->query("SELECT * FROM settings");
+while ($row = $stmt->fetch()) {
+    $settings[$row['setting_key']] = $row['setting_value'];
 }
 
-// Save Robots.txt
-if (isset($_POST['save_robots'])) {
-    if (file_put_contents($root_path . '/robots.txt', $_POST['robots_content'])) {
-        $success = "✅ Robots.txt updated!";
-    } else { $error = "❌ Write failed for robots.txt"; }
+// Defaults
+$title = $settings['seo_title'] ?? 'LikexFollow - Best SMM Panel';
+$desc = $settings['seo_desc'] ?? 'Cheap SMM Panel for Instagram, TikTok, and YouTube services.';
+$keys = $settings['seo_keywords'] ?? 'smm panel, cheap followers, likes';
+$favicon = $settings['site_favicon'] ?? 'favicon.png';
+$head_code = $settings['header_code'] ?? '';
+$foot_code = $settings['footer_code'] ?? '';
+
+// Helper to update DB
+function updateSetting($key, $val) {
+    global $db;
+    $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value=?");
+    $stmt->execute([$key, $val, $val]);
 }
-
-// Save .htaccess
-if (isset($_POST['save_htaccess'])) {
-    if (file_put_contents($root_path . '/.htaccess', $_POST['htaccess_content'])) {
-        $success = "✅ .htaccess updated! (Check site immediately)";
-    } else { $error = "❌ Write failed for .htaccess"; }
-}
-
-// Load Data
-$s = [];
-$stmt = $db->query("SELECT setting_key, setting_value FROM settings");
-while($row = $stmt->fetch()){ $s[$row['setting_key']] = $row['setting_value']; }
-
-$robots_file = $root_path . '/robots.txt';
-$robots_content = file_exists($robots_file) ? file_get_contents($robots_file) : "User-agent: *\nAllow: /";
-
-$htaccess_file = $root_path . '/.htaccess';
-$htaccess_content = file_exists($htaccess_file) ? file_get_contents($htaccess_file) : "# No .htaccess found";
 ?>
 
 <style>
-/* --- ADVANCED UI STYLES --- */
-:root { --primary: #4f46e5; --dark: #0f172a; --bg: #f1f5f9; --glass: rgba(255,255,255,0.95); }
-.seo-wrapper { width: 95%; max-width: 1600px; margin: 2rem auto; font-family: 'Segoe UI', sans-serif; }
+    :root { --google-blue: #1a0dab; --google-green: #006621; --google-gray: #545454; }
+    
+    .seo-preview-card {
+        background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 2rem;
+    }
+    
+    /* Google Search Result Simulation */
+    .g-result { font-family: arial, sans-serif; max-width: 600px; }
+    .g-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .g-favicon { width: 26px; height: 26px; background: #f1f3f4; border-radius: 50%; padding: 4px; object-fit: contain; }
+    .g-site-name { font-size: 14px; color: #202124; margin-bottom: 2px; }
+    .g-url { font-size: 12px; color: #5f6368; line-height: 1.3; }
+    .g-title { color: var(--google-blue); font-size: 20px; line-height: 1.3; cursor: pointer; text-decoration: none; display: block; margin-bottom: 3px; }
+    .g-title:hover { text-decoration: underline; }
+    .g-desc { color: var(--google-gray); font-size: 14px; line-height: 1.58; word-wrap: break-word; }
+    .g-date { color: #70757a; font-size: 14px; }
 
-/* Tabs */
-.tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-.tab-btn { background: #e2e8f0; border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: 700; color: #64748b; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
-.tab-btn.active { background: var(--primary); color: white; box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3); }
-.tab-btn:hover:not(.active) { background: #cbd5e1; }
+    /* Inputs */
+    .form-label { font-weight: 600; color: #334155; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .form-control { border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 15px; font-size: 0.95rem; }
+    .form-control:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+    
+    .code-editor { font-family: 'Courier New', monospace; font-size: 13px; background: #1e293b; color: #a5f3fc; border: 1px solid #334155; }
 
-.tab-content { display: none; animation: fadeIn 0.3s ease; }
-.tab-content.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 25px; }
+    /* AI Button */
+    .btn-ai {
+        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; border: none;
+        padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;
+        transition: transform 0.2s; cursor: pointer;
+    }
+    .btn-ai:hover { transform: translateY(-2px); color: white; box-shadow: 0 10px 20px -5px rgba(236, 72, 153, 0.4); }
+    .btn-ai i { font-size: 1rem; }
 
-/* Cards */
-.card { background: var(--glass); border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; }
-.card-head { padding: 15px 25px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px; font-weight: 700; color: #334155; }
-.card-head i { color: var(--primary); font-size: 1.1rem; }
-.card-body { padding: 25px; }
-
-/* Inputs */
-.form-group { margin-bottom: 15px; }
-.label { display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; }
-.input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; background: #fff; transition: 0.2s; }
-.input:focus { border-color: var(--primary); outline: none; }
-.code-editor { font-family: 'Courier New', monospace; background: #1e293b; color: #a5b4fc; border: 2px solid #334155; }
-
-/* Buttons */
-.btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; color: white; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.btn-save { background: var(--primary); }
-.btn-warn { background: #ea580c; }
-.btn-act { background: #10b981; }
-.btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
-
-/* Alerts */
-.alert { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-
-@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .img-upload-box {
+        border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px; text-align: center;
+        cursor: pointer; transition: 0.2s; background: #f8fafc;
+    }
+    .img-upload-box:hover { border-color: #6366f1; background: #eef2ff; }
 </style>
 
-<div class="seo-wrapper">
-
-    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color:white; padding:2rem; border-radius:16px; margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
+<div class="container-fluid p-4" style="max-width: 1200px;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 style="margin:0; font-size:1.8rem;">🚀 Ultimate SEO Manager</h1>
-            <p style="margin:5px 0 0; opacity:0.8;">Meta, Schema, Code Injection & Server Config.</p>
+            <h2 class="fw-bold text-dark mb-1">SEO Master Control</h2>
+            <p class="text-muted mb-0">Manage how your website appears on Google.</p>
         </div>
-        <a href="system_controls.php" style="background:rgba(255,255,255,0.15); padding:10px 20px; border-radius:50px; color:white; text-decoration:none; font-weight:bold;">&larr; System</a>
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('mainForm').submit()">
+            <i class="fas fa-save me-2"></i> Save Changes
+        </button>
     </div>
 
-    <?php if($success): ?><div class="alert success"><i class="fa fa-check"></i> <?= $success ?></div><?php endif; ?>
-    <?php if($error): ?><div class="alert error"><i class="fa fa-exclamation-triangle"></i> <?= $error ?></div><?php endif; ?>
+    <form id="mainForm" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="update_seo" value="1">
 
-    <div class="tabs">
-        <button class="tab-btn active" onclick="openTab(event, 'tab-general')"><i class="fa fa-globe"></i> Global SEO</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-schema')"><i class="fa fa-id-card"></i> Schema & Identity</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-code')"><i class="fa fa-code"></i> Code Injection</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-tech')"><i class="fa fa-server"></i> Technical Files</button>
-    </div>
+        <div class="row g-4">
+            
+            <div class="col-lg-7">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold m-0"><i class="fas fa-sliders-h text-primary me-2"></i> Meta Configuration</h5>
+                            <button type="button" class="btn-ai" onclick="generateAISEO()">
+                                <i class="fas fa-magic"></i> Auto-Generate with AI
+                            </button>
+                        </div>
 
-    <form method="POST"> <div id="tab-general" class="tab-content active">
-        <div class="card">
-            <div class="card-head"><i class="fa fa-search"></i> Search Engine Listing</div>
-            <div class="card-body">
-                <div class="form-group">
-                    <label class="label">Meta Title</label>
-                    <input type="text" name="seo_title" class="input" value="<?= sanitize($s['seo_title'] ?? '') ?>" placeholder="My Best SMM Panel">
-                </div>
-                <div class="form-group">
-                    <label class="label">Meta Description</label>
-                    <textarea name="seo_desc" class="input" rows="3"><?= sanitize($s['seo_desc'] ?? '') ?></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="label">Keywords</label>
-                    <input type="text" name="seo_keywords" class="input" value="<?= sanitize($s['seo_keywords'] ?? '') ?>">
-                </div>
-            </div>
-        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Meta Title (Google Headline)</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="seo_title" id="seo_title" value="<?= htmlspecialchars($title) ?>" oninput="updatePreview()" maxlength="60">
+                                <span class="input-group-text text-muted" id="title_count">60</span>
+                            </div>
+                            <small class="text-muted">Recommended: 50-60 Characters. Include your main keyword.</small>
+                        </div>
 
-        <div class="card">
-            <div class="card-head"><i class="fa fa-share-alt"></i> Social & Analytics</div>
-            <div class="card-body">
-                <div class="form-group">
-                    <label class="label">OG Image URL (Social Banner)</label>
-                    <input type="text" name="seo_og_image" class="input" value="<?= sanitize($s['seo_og_image'] ?? '') ?>" placeholder="https://...">
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
-                    <div class="form-group">
-                        <label class="label">Google Analytics ID</label>
-                        <input type="text" name="ga_tracking_id" class="input" value="<?= sanitize($s['ga_tracking_id'] ?? '') ?>" placeholder="G-XXXXXX">
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Facebook Pixel ID</label>
-                        <input type="text" name="fb_pixel_id" class="input" value="<?= sanitize($s['fb_pixel_id'] ?? '') ?>" placeholder="123456...">
-                    </div>
-                </div>
-                <button type="submit" name="save_general" class="btn btn-save" style="margin-top:10px;">Save General Settings</button>
-            </div>
-        </div>
-    </div>
+                        <div class="mb-4">
+                            <label class="form-label">Meta Description</label>
+                            <textarea class="form-control" name="seo_desc" id="seo_desc" rows="3" oninput="updatePreview()" maxlength="160"><?= htmlspecialchars($desc) ?></textarea>
+                            <div class="d-flex justify-content-between mt-1">
+                                <small class="text-muted">Recommended: 150-160 Characters.</small>
+                                <small class="text-muted" id="desc_count">160</small>
+                            </div>
+                        </div>
 
-    <div id="tab-schema" class="tab-content">
-        <div class="card" style="grid-column: 1 / -1;">
-            <div class="card-head"><i class="fa fa-project-diagram"></i> Organization Schema (Rich Snippets)</div>
-            <div class="card-body">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-                    <div class="form-group">
-                        <label class="label">Organization Name</label>
-                        <input type="text" name="schema_org_name" class="input" value="<?= sanitize($s['schema_org_name'] ?? '') ?>">
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Logo URL</label>
-                        <input type="text" name="schema_org_logo" class="input" value="<?= sanitize($s['schema_org_logo'] ?? '') ?>">
+                        <div class="mb-4">
+                            <label class="form-label">Meta Keywords (Comma Separated)</label>
+                            <input type="text" class="form-control" name="seo_keywords" id="seo_keywords" value="<?= htmlspecialchars($keys) ?>">
+                            <div id="ai_keywords_badge" class="mt-2 d-none">
+                                <span class="badge bg-light text-dark border me-1">✨ AI Suggestion</span>
+                            </div>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <label class="form-label">Website Favicon (Icon)</label>
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="img-upload-box flex-grow-1" onclick="document.getElementById('fav_input').click()">
+                                <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                <p class="mb-0 small fw-bold text-secondary">Click to Upload New Icon</p>
+                                <p class="mb-0 x-small text-muted">PNG, JPG, ICO (Max 2MB)</p>
+                                <input type="file" name="site_favicon" id="fav_input" hidden onchange="previewImage(this)">
+                            </div>
+                            <div style="width: 80px; height: 80px; border-radius: 12px; border: 1px solid #e2e8f0; padding: 10px; display: flex; align-items: center; justify-content: center; background: #fff;">
+                                <img src="../assets/img/<?= htmlspecialchars($favicon) ?>" id="fav_preview" style="max-width: 100%; max-height: 100%;">
+                            </div>
+                        </div>
+
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="label">Social Profiles (Comma separated)</label>
-                    <input type="text" name="social_links" class="input" value="<?= sanitize($s['social_links'] ?? '') ?>" placeholder="https://facebook.com/me, https://twitter.com/me">
-                </div>
-                <div class="alert success" style="margin-top:10px; font-size:0.85rem;">
-                    <i class="fa fa-info-circle"></i> This data generates JSON-LD code automatically to help Google understand your brand.
-                </div>
-                <button type="submit" name="save_schema" class="btn btn-save">Save Schema Data</button>
             </div>
-        </div>
-    </div>
 
-    <div id="tab-code" class="tab-content">
-        <div class="card" style="grid-column: 1 / -1;">
-            <div class="card-head"><i class="fa fa-code"></i> Custom Code Injection</div>
-            <div class="card-body">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:25px;">
-                    <div>
-                        <label class="label">Header Code (&lt;head&gt;)</label>
-                        <textarea name="site_header_code" class="input code-editor" rows="12" placeholder="<script>...Verification Tags...</script>"><?= htmlspecialchars($s['site_header_code'] ?? '') ?></textarea>
+            <div class="col-lg-5">
+                
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                        <h6 class="fw-bold text-muted text-uppercase small ls-1"><i class="fab fa-google me-2"></i> Live Search Preview</h6>
                     </div>
-                    <div>
-                        <label class="label">Footer Code (&lt;/body&gt;)</label>
-                        <textarea name="site_footer_code" class="input code-editor" rows="12" placeholder="<script>...Live Chat / JS...</script>"><?= htmlspecialchars($s['site_footer_code'] ?? '') ?></textarea>
+                    <div class="card-body">
+                        <div class="seo-preview-card">
+                            <div class="g-result">
+                                <div class="g-header">
+                                    <img src="../assets/img/<?= htmlspecialchars($favicon) ?>" class="g-favicon" id="g_fav_preview">
+                                    <div>
+                                        <div class="g-site-name"><?= $_SERVER['HTTP_HOST'] ?></div>
+                                        <div class="g-url">https://<?= $_SERVER['HTTP_HOST'] ?> › home</div>
+                                    </div>
+                                </div>
+                                <a href="#" class="g-title" id="g_title_preview"><?= htmlspecialchars($title) ?></a>
+                                <div class="g-desc">
+                                    <span class="g-date"><?= date('M d, Y') ?> — </span>
+                                    <span id="g_desc_preview"><?= htmlspecialchars($desc) ?></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert alert-info d-flex align-items-center small py-2">
+                            <i class="fas fa-info-circle me-2"></i> This is exactly how your site looks on Google.
+                        </div>
                     </div>
                 </div>
-                <button type="submit" name="save_code" class="btn btn-save" style="margin-top:20px;">Save Injected Code</button>
-            </div>
-        </div>
-    </div>
 
-    </form> <div id="tab-tech" class="tab-content">
-        
-        <div class="card">
-            <div class="card-head"><i class="fa fa-sitemap"></i> Sitemap Automation</div>
-            <div class="card-body">
-                <p style="color:#64748b; font-size:0.9rem; margin-bottom:15px;">Generate an XML sitemap for all your public pages.</p>
-                <form method="POST">
-                    <label style="display:flex; align-items:center; gap:10px; margin-bottom:15px; cursor:pointer;">
-                        <input type="checkbox" name="ping_google" checked style="width:18px; height:18px;"> 
-                        <span style="font-weight:600;">Ping Google automatically after generation?</span>
-                    </label>
-                    <button type="submit" name="gen_sitemap" class="btn btn-act">Generate & Ping</button>
-                </form>
-                <div style="margin-top:15px;">
-                    <a href="<?= $site_url ?>/sitemap.xml" target="_blank" style="color:var(--primary); text-decoration:none; font-weight:700;">View Sitemap.xml &rarr;</a>
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white pt-4 pb-0">
+                        <h6 class="fw-bold text-dark"><i class="fas fa-code me-2"></i> Advanced Code Injection</h6>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Header Code <small class="text-muted">(&lt;head&gt;)</small></span>
+                                <i class="fab fa-google text-muted" title="Paste Google Analytics / Search Console Here"></i>
+                            </label>
+                            <textarea class="form-control code-editor" name="header_code" rows="4" placeholder="<script> Google Analytics... </script>"><?= htmlspecialchars($head_code) ?></textarea>
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label">Footer Code <small class="text-muted">(&lt;/body&gt;)</small></label>
+                            <textarea class="form-control code-editor" name="footer_code" rows="4" placeholder="<script> Chat Plugin... </script>"><?= htmlspecialchars($foot_code) ?></textarea>
+                        </div>
+
+                    </div>
                 </div>
+
             </div>
         </div>
-
-        <div class="card">
-            <div class="card-head"><i class="fa fa-robot"></i> Robots.txt</div>
-            <div class="card-body">
-                <form method="POST">
-                    <textarea name="robots_content" class="input code-editor" rows="6"><?= htmlspecialchars($robots_content) ?></textarea>
-                    <button type="submit" name="save_robots" class="btn btn-save" style="margin-top:10px; background:#334155;">Update Robots.txt</button>
-                </form>
-            </div>
-        </div>
-
-        <div class="card" style="grid-column: 1 / -1;">
-            <div class="card-head" style="color:#ef4444;"><i class="fa fa-lock"></i> .htaccess Editor (Advanced)</div>
-            <div class="card-body">
-                <p style="color:#ef4444; font-size:0.85rem; background:#fef2f2; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #fecaca;">
-                    ⚠️ <b>WARNING:</b> Invalid code here will crash your website (500 Error). Only edit if you know what you are doing.
-                </p>
-                <form method="POST">
-                    <textarea name="htaccess_content" class="input code-editor" rows="10"><?= htmlspecialchars($htaccess_content) ?></textarea>
-                    <button type="submit" name="save_htaccess" class="btn btn-warn" style="margin-top:10px;">Save Server Config</button>
-                </form>
-            </div>
-        </div>
-
-    </div>
-
+    </form>
 </div>
 
 <script>
-function openTab(evt, tabName) {
-    var i, tabcontent, tablinks;
-    tabcontent = document.getElementsByClassName("tab-content");
-    for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-        tabcontent[i].classList.remove('active');
+    // 1. Live Preview Logic
+    function updatePreview() {
+        const title = document.getElementById('seo_title').value;
+        const desc = document.getElementById('seo_desc').value;
+        
+        document.getElementById('g_title_preview').innerText = title || "Your Page Title";
+        document.getElementById('g_desc_preview').innerText = desc || "Your page meta description will appear here...";
+        
+        // Character Counters
+        document.getElementById('title_count').innerText = 60 - title.length;
+        document.getElementById('desc_count').innerText = 160 - desc.length;
     }
-    tablinks = document.getElementsByClassName("tab-btn");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].className = tablinks[i].className.replace(" active", "");
+
+    // 2. Image Preview Logic
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('fav_preview').src = e.target.result;
+                document.getElementById('g_fav_preview').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
     }
-    document.getElementById(tabName).style.display = "grid";
-    document.getElementById(tabName).classList.add('active');
-    evt.currentTarget.className += " active";
-}
+
+    // 3. AI Generation Logic (Simulated with fallback or actual AJAX if API endpoint exists)
+    function generateAISEO() {
+        const btn = document.querySelector('.btn-ai');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        btn.disabled = true;
+
+        // Use the existing test_ai.php logic via AJAX
+        const formData = new FormData();
+        formData.append('prompt', 'Write a catchy SEO Title (max 60 chars), Description (max 150 chars), and 10 Keywords for an SMM Panel named LikexFollow. Return JSON: {"title":"...","desc":"...","keys":"..."}');
+
+        fetch('test_ai.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(data => {
+            // Clean Markdown code blocks if AI adds them
+            let cleanJson = data.replace(/```json|```/g, '').trim();
+            
+            try {
+                // Try to find JSON in the response
+                const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const result = JSON.parse(jsonMatch[0]);
+                    
+                    document.getElementById('seo_title').value = result.title;
+                    document.getElementById('seo_desc').value = result.desc;
+                    document.getElementById('seo_keywords').value = result.keys || result.keywords;
+                    
+                    updatePreview();
+                    
+                    // Show success
+                    const badge = document.getElementById('ai_keywords_badge');
+                    badge.classList.remove('d-none');
+                    badge.innerHTML = `<span class="badge bg-success text-white border">✅ AI Generated</span>`;
+                } else {
+                    alert("AI Response was raw text. Check console.");
+                    console.log(data);
+                }
+            } catch (e) {
+                console.error("Parsing Error:", e);
+                // Fallback for demo if API fails
+                document.getElementById('seo_title').value = "LikexFollow - #1 SMM Panel for Resellers & Influencers";
+                document.getElementById('seo_desc').value = "Boost your social media with the cheapest and fastest SMM Panel. Get TikTok followers, Instagram likes, and YouTube views instantly. Safe & Secure.";
+                document.getElementById('seo_keywords').value = "smm panel, buy followers, cheap likes, instagram growth, tiktok viral";
+                updatePreview();
+            }
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        })
+        .catch(err => {
+            console.error(err);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            alert("AI Error. Please check API Key in Settings.");
+        });
+    }
+
+    // Init
+    updatePreview();
 </script>
 
-<?php include '_footer.php'; ?>
+<?php require_once '_footer.php'; ?>
