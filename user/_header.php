@@ -35,101 +35,23 @@ if (!isset($curr_list[$curr_code])) $curr_code = 'PKR';
 
 $curr_data = $curr_list[$curr_code];
 $curr_flag = $curr_data['flag'];
-?>
-<?php
-// --- UNIVERSAL SEO LOADER ---
-require_once __DIR__ . '/../includes/db.php'; // Path adjust karein agar zaroorat ho
 
-// 1. Current Page ka naam nikalo
+// --- 5. UNIVERSAL AI SEO LOADER ---
+// Ye code Database se wo SEO data uthayega jo AI ne Cron Job ke zariye likha hai
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// 2. Database se SEO Data uthao
+// Database Fetch
 $stmt = $db->prepare("SELECT * FROM site_seo WHERE page_name = ?");
 $stmt->execute([$current_page]);
 $seo = $stmt->fetch();
 
-// 3. Agar Database mein nahi hai, to Default values
-$meta_title = $seo['meta_title'] ?? "LikexFollow - Best SMM Panel";
-$meta_desc = $seo['meta_description'] ?? "Cheap SMM Panel for Instagram, TikTok, YouTube.";
-$meta_keys = $seo['meta_keywords'] ?? "smm panel, cheap followers, likexfollow";
+// Agar AI ne abhi tak data nahi likha, to Default Settings use hongi
+$meta_title = !empty($seo['meta_title']) ? $seo['meta_title'] : ($GLOBALS['settings']['seo_title'] ?? $site_name);
+$meta_desc = !empty($seo['meta_description']) ? $seo['meta_description'] : ($GLOBALS['settings']['seo_desc'] ?? '');
+$meta_keys = !empty($seo['meta_keywords']) ? $seo['meta_keywords'] : ($GLOBALS['settings']['seo_keywords'] ?? '');
 
-// 4. Open Graph (Social Media Sharing) Tags
+// Open Graph URL
 $og_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <title><?= htmlspecialchars($meta_title) ?></title>
-    <meta name="description" content="<?= htmlspecialchars($meta_desc) ?>">
-    <meta name="keywords" content="<?= htmlspecialchars($meta_keys) ?>">
-    
-    <meta property="og:title" content="<?= htmlspecialchars($meta_title) ?>">
-    <meta property="og:description" content="<?= htmlspecialchars($meta_desc) ?>">
-    <meta property="og:url" content="<?= $og_url ?>">
-    <meta property="og:type" content="website">
-    
-    <link rel="stylesheet" href="assets/css/style.css">
-    ```
-
----
-
-### **Step 3: AI Meta Tagger Cron (`includes/cron/auto_meta_tagger.php`)**
-Ye naya Cron Job hai. Ye script database check karega, agar kisi page (`index.php`, `login.php`) ke keywords/description khali hain, to ye AI ko bolega: *"Is page ke liye heavy SEO tags likh kar do"*.
-
-**Create File:** `includes/cron/auto_meta_tagger.php`
-
-```php
-<?php
-// File: includes/cron/auto_meta_tagger.php
-require_once __DIR__ . '/../db.php';
-require_once __DIR__ . '/../AiEngine.php';
-
-echo "<h2>🔎 Scanning Pages for Missing SEO...</h2>";
-
-// 1. Aise pages dhoondo jinka SEO data khali hai
-$stmt = $db->query("SELECT * FROM site_seo WHERE meta_description IS NULL OR meta_keywords IS NULL OR meta_description = '' LIMIT 1");
-$page = $stmt->fetch();
-
-if (!$page) {
-    die("✅ All pages are fully optimized. Nothing to do.");
-}
-
-$pageName = $page['page_name'];
-echo "Processing Page: <strong>$pageName</strong><br>";
-
-// 2. AI Prompt Taiyar karein
-$ai = new AiEngine($db);
-$prompt = "Generate SEO Meta Tags for a page named '$pageName' for an SMM Panel website 'LikexFollow'.
-Output ONLY JSON format:
-{
-    \"title\": \"Catchy Title (60 chars)\",
-    \"description\": \"SEO Description (160 chars) including keywords like cheap, safe, instant.\",
-    \"keywords\": \"comma, separated, 10, high, cpc, keywords\"
-}";
-
-// 3. AI se Content Mangwayen
-$response = $ai->generateContent($prompt);
-
-// JSON Clean up (Agar AI ne ```json laga diya ho)
-$response = str_replace(['```json', '```'], '', $response);
-$data = json_decode($response, true);
-
-if ($data && isset($data['title'])) {
-    
-    // 4. Update Database
-    $update = $db->prepare("UPDATE site_seo SET meta_title=?, meta_description=?, meta_keywords=? WHERE id=?");
-    $update->execute([$data['title'], $data['description'], $data['keywords'], $page['id']]);
-    
-    echo "✅ Success! Updated SEO for $pageName.<br>";
-    echo "Title: {$data['title']}<br>";
-    echo "Keywords: {$data['keywords']}";
-
-} else {
-    echo "❌ Failed to parse AI response. Raw: " . htmlspecialchars($response);
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -142,14 +64,21 @@ if ($data && isset($data['title'])) {
     <meta name="msapplication-navbutton-color" content="<?php echo $primary_color; ?>">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <title><?= htmlspecialchars($GLOBALS['settings']['seo_title'] ?? $GLOBALS['settings']['site_name']) ?></title>
-    <meta name="description" content="<?= htmlspecialchars($GLOBALS['settings']['seo_desc'] ?? '') ?>">
-    <meta name="keywords" content="<?= htmlspecialchars($GLOBALS['settings']['seo_keywords'] ?? '') ?>">
+    <title><?= htmlspecialchars($meta_title) ?></title>
+    <meta name="description" content="<?= htmlspecialchars($meta_desc) ?>">
+    <meta name="keywords" content="<?= htmlspecialchars($meta_keys) ?>">
+    
+    <meta property="og:title" content="<?= htmlspecialchars($meta_title) ?>">
+    <meta property="og:description" content="<?= htmlspecialchars($meta_desc) ?>">
+    <meta property="og:url" content="<?= $og_url ?>">
+    <meta property="og:type" content="website">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="assets/css/style.css">
 
     <?php if (!empty($GLOBALS['settings']['onesignal_app_id'])): ?>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -170,7 +99,6 @@ if ($data && isset($data['title'])) {
       }
 
       OneSignalDeferred.push(async function(OneSignal) {
-        // 1. Enable Debugging (Is se errors F12 console mein show honge)
         OneSignal.Debug.setLogLevel("trace");
 
         await OneSignal.init({
@@ -178,33 +106,21 @@ if ($data && isset($data['title'])) {
           <?php if(!empty($GLOBALS['settings']['onesignal_safari_id'])): ?>
           safari_web_id: "<?php echo $GLOBALS['settings']['onesignal_safari_id']; ?>",
           <?php endif; ?>
-          notifyButton: { enable: false }, // Hide default bell (Auto Prompt Only)
+          notifyButton: { enable: false },
           allowLocalhostAsSecureOrigin: true,
-          
-          // 2. CRITICAL FIX: Explicit Service Worker Path (Yeh line bohot zaroori hai)
           serviceWorkerPath: "OneSignalSDKWorker.js", 
           serviceWorkerParam: { scope: "/" }
         });
 
-        // 3. Logic: Force Prompt if not subscribed
         if (!OneSignal.User.PushSubscription.optedIn) {
-            console.log("User Not Subscribed. Showing Prompt...");
-            try {
-                await OneSignal.Slidedown.promptPush();
-            } catch(e) { console.error("Prompt Error:", e); }
+            try { await OneSignal.Slidedown.promptPush(); } catch(e) { console.error("Prompt Error:", e); }
         } else {
-            console.log("User Already Subscribed. ID:", OneSignal.User.PushSubscription.id);
             syncOneSignalId(OneSignal.User.PushSubscription.id);
         }
 
-        // 4. Listen for Subscription Change (Jab user Allow click kare)
         OneSignal.User.PushSubscription.addEventListener("change", function(event) {
-            console.log("Subscription Changed:", event);
             if (event.current.optedIn) {
-                const newId = OneSignal.User.PushSubscription.id;
-                console.log("New Subscription ID:", newId);
-                syncOneSignalId(newId);
-                alert("✅ Notifications Activated!");
+                syncOneSignalId(OneSignal.User.PushSubscription.id);
             }
         });
       });
