@@ -29,9 +29,10 @@ $cardDesign = $saved_design ? json_decode($saved_design, true) : [
 // --- 3. DATA FETCHING ---
 try {
     $stmt = $db->query("
-        SELECT s.*, f.id as is_favorite
+        SELECT s.*, f.id as is_favorite, p.api_url as provider_api
         FROM smm_services s
         LEFT JOIN user_favorite_services f ON s.id = f.service_id AND f.user_id = $user_id
+        LEFT JOIN smm_providers p ON s.provider_id = p.id
         WHERE s.is_active = 1
         ORDER BY s.category ASC, s.name ASC
     ");
@@ -40,7 +41,6 @@ try {
     $grouped_apps = [];
     $services_json = [];
     
-    // --- 🛠️ APPS CONFIGURATION (Specific Filters per App) ---
     $known_apps = [
         'Instagram' => ['filters' => ['Followers','Likes','Views','Comments','Story'], 'icon' => 'Instagram.png'], 
         'TikTok' => ['filters' => ['Followers','Likes','Views','Comments','Saves'], 'icon' => 'TikTok.png'],
@@ -60,10 +60,9 @@ try {
     foreach ($all_services as $s) {
         $full_cat = trim($s['category']);
         $app_name = 'Others'; 
-        $app_filters = ['Followers','Likes','Views']; // Default filters
+        $app_filters = ['Followers','Likes','Views']; 
         $found = false;
 
-        // Auto-Detect App based on Category Name
         foreach ($known_apps as $kApp => $data) {
             if (stripos($full_cat, $kApp) !== false) {
                 $app_name = $kApp;
@@ -79,19 +78,18 @@ try {
             $app_name = (count($parts) > 1) ? trim($parts[0]) : $full_cat;
         }
         
-        // Grouping Data
         $grouped_apps[$app_name]['services'][$full_cat][] = $s;
         $grouped_apps[$app_name]['filters'] = $app_filters; 
 
         $is_comment = (stripos($s['name'], 'Comment') !== false || stripos($s['category'], 'Comment') !== false);
-        
-        // Visual Icons Logic
+        $service_type = $s['service_type'] ?? 'Default';
+        $is_manual = ((int)$s['provider_id'] === 0 || $s['provider_api'] === 'manual_internal');
+
         $icon_char = '🟢'; 
         if (stripos($s['name'], 'Best') !== false || stripos($s['name'], 'Recommended') !== false || stripos($s['name'], 'VIP') !== false) $icon_char = '🔥';
         elseif (stripos($s['avg_time'], 'Instant') !== false) $icon_char = '⚡';
         elseif (stripos($s['avg_time'], 'hour') !== false) $icon_char = '🟡';
 
-        // Drip Feed Logic (1 = Allowed, 0 = Not Allowed)
         $has_drip = 1; 
         if(isset($s['dripfeed']) && ($s['dripfeed'] == 0 || $s['dripfeed'] == '0')) {
             $has_drip = 0;
@@ -104,7 +102,9 @@ try {
             'avg' => formatSmmAvgTime($s['avg_time']),
             'refill' => (bool)$s['has_refill'],
             'cancel' => (bool)$s['has_cancel'],
-            'drip'   => $has_drip, // Sends 1 or 0
+            'drip'   => $has_drip, 
+            'type'   => $service_type, 
+            'is_manual' => $is_manual,
             'name' => sanitize($s['name']),
             'category' => sanitize($full_cat), 
             'desc' => nl2br($s['description'] ?? 'No details available.'),
@@ -120,29 +120,29 @@ try {
 $logo_url = !empty($site_logo) ? "../assets/img/$site_logo" : "";
 ?>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
+<script src="[https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js](https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js)"></script>
+<script src="[https://cdn.jsdelivr.net/npm/sweetalert2@11](https://cdn.jsdelivr.net/npm/sweetalert2@11)"></script>
 
 <script>
     window.currConfig = { code: "<?=$curr_code?>", rate: <?=$curr_rate?>, sym: "<?=$curr_symbol?>" };
     window.svcData = <?= json_encode($services_json) ?>;
     window.siteData = { logo: "<?=$logo_url?>", name: "<?= htmlspecialchars($site_name) ?>", wa: "<?= htmlspecialchars($admin_wa) ?>" };
     
-    // Pass Filters Data to JS
     window.appFilters = {};
     <?php foreach($grouped_apps as $name => $data): ?>
     window.appFilters["<?= md5($name) ?>"] = <?= json_encode($data['filters']) ?>;
     <?php endforeach; ?>
 </script>
 
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="[https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap](https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap)" rel="stylesheet">
 
 <style>
 /* --- 🎨 MAIN THEME --- */
 :root { --primary: #4f46e5; --bg-body: #f8fafc; --card-bg: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --radius: 16px; }
 body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; color: var(--text-main); font-size: 15px; overflow-x: hidden; }
 
-/* --- GRID & CARDS --- */
+/* GRID & CARDS */
 .platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-bottom: 30px; animation: fadeIn 0.5s; }
 .platform-card {
     background: var(--card-bg); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border);
@@ -153,7 +153,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 .platform-card:hover .platform-icon { transform: scale(1.1); }
 .platform-title { font-weight: 700; font-size: 0.9rem; display: block; }
 
-/* --- APP VIEW --- */
+/* APP VIEW */
 .app-container { display: none; animation: slideIn 0.3s ease-out; }
 @keyframes slideIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
 
@@ -165,7 +165,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 }
 .back-btn:hover { border-color: var(--primary); color: var(--primary); transform: translateX(-3px); }
 
-/* 🔥 Smart Filter Chips */
+/* Smart Filter Chips */
 .filter-wrap { overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; scrollbar-width: none; }
 .filter-scroll { display: flex; gap: 8px; }
 .filter-chip { 
@@ -199,6 +199,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 .tag-time { background: #f1f5f9; color: var(--text-sub); }
 .tag-refill { background: #dcfce7; color: #166534; }
 .tag-cancel { background: #fee2e2; color: #991b1b; }
+.tag-manual { background: #f3f4f6; color: #475569; border: 1px solid #cbd5e1; }
 
 .service-actions { margin-left: auto; display: flex; gap: 8px; }
 .btn-receipt {
@@ -283,25 +284,43 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 .drip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .drip-guide { font-size: 0.8rem; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 8px; margin-top: 10px; }
 
-/* 💸 Reseller Box */
-.reseller-toggle {
-    background: #ecfdf5; border: 1px solid #6ee7b7; padding: 12px; border-radius: 12px;
-    cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-    font-weight: 700; color: #065f46; margin-top: 10px;
-}
-.reseller-box {
-    display: none; background: #fff; border: 1px solid #6ee7b7; border-top: none;
-    border-radius: 0 0 12px 12px; padding: 15px; margin-top: -5px; margin-bottom: 10px;
-}
-.res-input { border-color: #34d399; background: #f0fdf4; font-weight: 700; color: #064e3b; }
-.res-result { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-weight: 800; font-size: 1.1rem; color: #059669; }
-
 .btn-submit {
     width: 100%; padding: 16px; background: var(--primary); color: #fff; font-weight: 800; font-size: 1rem;
     border: none; border-radius: 14px; cursor: pointer; margin-top: 15px;
     box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); transition: 0.3s;
 }
 .btn-submit:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4); }
+
+/* === 🤖 AI CHATBOT (FLOATING) === */
+.ai-fab {
+    position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px;
+    background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 50%;
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.ai-fab:hover { transform: scale(1.1); box-shadow: 0 15px 35px rgba(99, 102, 241, 0.5); }
+.ai-fab i { font-size: 28px; color: white; animation: pulse 2s infinite; }
+
+.ai-box {
+    position: fixed; bottom: 100px; right: 30px; width: 360px; height: 500px;
+    background: #fff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+    display: none; flex-direction: column; overflow: hidden; z-index: 9999;
+    border: 1px solid var(--border); animation: slideUp 0.3s ease-out;
+}
+.ai-header {
+    background: linear-gradient(135deg, #a855f7, #6366f1); padding: 20px;
+    color: white; display: flex; align-items: center; gap: 10px;
+}
+.ai-avatar { width: 40px; height: 40px; background: white; border-radius: 50%; padding: 2px; }
+.ai-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.ai-body { flex: 1; padding: 15px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 10px; }
+.ai-msg { padding: 10px 15px; border-radius: 12px; font-size: 0.9rem; max-width: 85%; line-height: 1.4; }
+.ai-bot { background: #fff; border: 1px solid #e5e7eb; border-bottom-left-radius: 0; align-self: flex-start; color: #374151; }
+.ai-user { background: #6366f1; color: white; border-bottom-right-radius: 0; align-self: flex-end; }
+.ai-footer { padding: 15px; background: white; border-top: 1px solid #f3f4f6; display: flex; gap: 10px; }
+.ai-input { flex: 1; padding: 10px 15px; border: 1px solid #e5e7eb; border-radius: 50px; outline: none; }
+.ai-send { width: 40px; height: 40px; border-radius: 50%; background: #6366f1; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
 /* === 🔥 FIXED RECEIPT CSS === */
 #receipt-node {
@@ -371,6 +390,8 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 @keyframes zoomIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
 @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+@keyframes pulse { 0% { transform:scale(1); } 50% { transform:scale(1.1); } 100% { transform:scale(1); } }
+@keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
 </style>
 
 <div class="container">
@@ -427,6 +448,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                         $rate = (float)$s['service_rate'];
                         if($curr_code != 'PKR') $rate *= $curr_rate;
                         $s_icon = $services_json[$s['id']]['icon'];
+                        $is_manual = ((int)$s['provider_id'] === 0 || $s['provider_api'] === 'manual_internal');
                     ?>
                     <div class="service-item" data-name="<?= strtolower(sanitize($s['name'])) ?>" onclick="openModal(<?= $s['id'] ?>)">
                         <div class="service-top">
@@ -440,6 +462,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                             <span class="tag tag-time">⏱ <?= formatSmmAvgTime($s['avg_time']) ?></span>
                             <?php if($s['has_refill']): ?><span class="tag tag-refill">♻️ Refill</span><?php endif; ?>
                             <?php if($s['has_cancel']): ?><span class="tag tag-cancel">🚫 Cancel</span><?php endif; ?>
+                            <?php if($is_manual): ?><span class="tag tag-manual">🛠️ Manual</span><?php endif; ?>
                             
                             <div class="service-actions">
                                 <button class="btn-receipt" onclick="event.stopPropagation(); genReceipt(<?= $s['id'] ?>)">
@@ -524,7 +547,12 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                 </div>
 
                 <div id="grp-com" class="form-group" style="display:none">
-                    <label class="form-label">Comments (1 per line)</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label class="form-label" style="margin:0;">Comments (1 per line)</label>
+                        <button type="button" class="btn-receipt" onclick="generateAiComments()" id="ai-btn-txt" style="border:1px solid var(--primary); color:var(--primary); padding:4px 10px;">
+                            ✨ Generate with AI
+                        </button>
+                    </div>
                     <textarea name="comments" id="m-com" class="form-input" rows="4" placeholder="Nice post!&#10;Great!"></textarea>
                 </div>
 
@@ -533,23 +561,6 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                     <span id="m-total" style="color:var(--primary);font-size:1.4rem;font-weight:800;">0.00</span>
                 </div>
                 <div id="m-hint" class="dynamic-hint"></div>
-                
-                <div class="reseller-toggle" onclick="toggleReseller()">
-                    <span>💰 Reseller Profit Calculator</span>
-                    <i class="fa fa-chevron-down"></i>
-                </div>
-                <div class="reseller-box" id="reseller-area">
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <div style="flex:1">
-                            <label style="font-size:0.75rem; font-weight:700; color:#065f46;">Your Selling Price (Aap kitne ka bechna chahte hain?)</label>
-                            <input type="number" id="calc-rate" class="form-input res-input" placeholder="e.g. 500" oninput="calcProfit()">
-                        </div>
-                    </div>
-                    <div class="res-result">
-                        <span>Your Profit (Bachat):</span>
-                        <span id="profit-res">0.00</span>
-                    </div>
-                </div>
 
                 <button type="submit" class="btn-submit">CONFIRM ORDER</button>
             </form>
@@ -558,6 +569,32 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 </div>
 
 <div id="receipt-node"></div>
+
+<div class="ai-fab" onclick="toggleAiChat()">
+    <i class="fa-solid fa-robot"></i>
+</div>
+
+<div class="ai-box" id="ai-chat-box">
+    <div class="ai-header">
+        <div class="ai-avatar">
+            <img src="../assets/img/icons/ai.png" onerror="this.src='[https://cdn-icons-png.flaticon.com/512/4712/4712035.png](https://cdn-icons-png.flaticon.com/512/4712/4712035.png)'">
+        </div>
+        <div>
+            <h4 style="margin:0; font-size:1rem;">Israr Liaqat Ai</h4>
+            <span style="font-size:0.75rem; opacity:0.8;">● Online</span>
+        </div>
+        <span onclick="toggleAiChat()" style="margin-left:auto; cursor:pointer;">✕</span>
+    </div>
+    <div class="ai-body" id="ai-messages">
+        <div class="ai-msg ai-bot">
+            Assalam-o-Alaikum! 👋<br>Main hoon Israr Liaqat Ai.<br>Bataiye main aapki kya madad kar sakta hoon? Sasti service dhoondni hai?
+        </div>
+    </div>
+    <div class="ai-footer">
+        <input type="text" id="ai-input" class="ai-input" placeholder="Ask anything..." onkeypress="handleAiEnter(event)">
+        <button class="ai-send" onclick="sendAiMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -698,7 +735,7 @@ function openModal(id) {
     // Colors
     let rC=s.refill?'#10b981':'#ef4444', cC=s.cancel?'#10b981':'#ef4444';
     $('#m-stats').innerHTML = `
-        <div class="stat-box"><small>Start Time</small><b>${s.avg}</b></div>
+        <div class="stat-box"><small>Average Time</small><b>${s.avg}</b></div>
         <div class="stat-box" style="border-bottom:3px solid ${rC}"><small>Refill</small><b style="color:${rC}">${s.refill?'Available':'No Refill'}</b></div>
         <div class="stat-box" style="border-bottom:3px solid ${cC}"><small>Cancel</small><b style="color:${cC}">${s.cancel?'Available':'No Cancel'}</b></div>
     `;
@@ -714,18 +751,27 @@ function openModal(id) {
     $('#drip-fields').style.display = 'none';
     $('#drip-val').value = '0';
     
-    // Reseller Box Reset
-    $('#reseller-area').style.display = 'none';
-    $('#calc-rate').value = '';
-    $('#profit-res').innerText = '0.00';
-
-    if(s.is_comment) { 
-        $('#grp-qty').style.display='none'; $('#grp-com').style.display='block'; $('#m-qty').readOnly=true; 
-        $('#grp-drip').style.display = 'none'; // No drip for comments
+    // === 🔥 UPDATED: PACKAGE / CUSTOM / DEFAULT LOGIC ===
+    if(s.type === 'Package') {
+        // PACKAGE: No Qty, Fixed Price
+        $('#grp-qty').style.display='none'; 
+        $('#grp-com').style.display='none'; 
+        $('#grp-drip').style.display = 'none'; 
+        $('#m-qty').value = '1'; // Force value to bypass HTML validation
+        $('#m-qty').readOnly = true;
+        updatePrice(1); // Calculate fixed price immediately
+    } else if(s.is_comment || s.type === 'Custom Comments') { 
+        // CUSTOM COMMENTS
+        $('#grp-qty').style.display='none'; 
+        $('#grp-com').style.display='block'; 
+        $('#m-qty').readOnly=true; 
+        $('#grp-drip').style.display = 'none'; 
     } else { 
-        $('#grp-qty').style.display='block'; $('#grp-com').style.display='none'; $('#m-qty').readOnly=false; 
+        // DEFAULT SERVICE
+        $('#grp-qty').style.display='block'; 
+        $('#grp-com').style.display='none'; 
+        $('#m-qty').readOnly=false; 
         
-        // --- FIXED DRIP CHECK ---
         if(s.drip == 1) {
              $('#grp-drip').style.display = 'block'; 
         } else {
@@ -734,7 +780,7 @@ function openModal(id) {
     }
 
     $('.modal-overlay').classList.add('active');
-    updatePrice(0);
+    if(s.type !== 'Package') updatePrice(0);
 }
 function closeModal() { $('.modal-overlay').classList.remove('active'); }
 
@@ -760,19 +806,27 @@ function updatePrice(qty) {
     let multiplier = 1;
     let runs = 0;
     
+    // Drip Logic
     if($('#drip-check').checked) {
         runs = parseInt($('#m-runs').value) || 0;
         if(runs > 0) multiplier = runs;
         
-        // Update Guide Text
         let total = qty * multiplier;
         $('#drip-guide').innerHTML = `💡 <b>Calculation:</b> ${qty} (Qty) x ${multiplier} (Runs) = <b>${total} Total Quantity</b>.`;
     }
 
     let totalQty = qty * multiplier;
-    
-    // Rate Calc
-    let p = (totalQty/1000)*currSvc.rate;
+    let p = 0;
+
+    // === 🔥 FIXED: PRICE CALCULATION ===
+    if(currSvc.type === 'Package') {
+        // For Packages: Rate is the total price (fixed)
+        p = currSvc.rate;
+    } else {
+        // For Default: Rate is per 1000
+        p = (totalQty/1000)*currSvc.rate;
+    }
+
     if(window.currConfig.code!=='PKR') p*=window.currConfig.rate;
     
     $('#m-total').innerText = window.currConfig.sym + ' ' + p.toFixed(2);
@@ -781,36 +835,6 @@ function updatePrice(qty) {
     let hints = '';
     if(totalQty >= 1000) hints += `<span class="hint-promo" style="color:#10b981">🚀 Good volume! Priority processing.</span>`;
     $('#m-hint').innerHTML = hints;
-    
-    calcProfit();
-}
-
-// Reseller Calc
-function toggleReseller() {
-    const el = $('#reseller-area');
-    el.style.display = (el.style.display === 'block') ? 'none' : 'block';
-}
-
-function calcProfit() {
-    if(!currSvc) return;
-    let qty = parseInt($('#m-qty').value) || 0;
-    let myRate = parseFloat($('#calc-rate').value) || 0;
-    
-    // Cost per 1000
-    let cost = currSvc.rate;
-    if(window.currConfig.code !== 'PKR') cost *= window.currConfig.rate;
-    
-    // Profit = (Selling Price - Cost) * (Qty / 1000)
-    let profit = (myRate - cost) * (qty / 1000);
-    
-    // Drip feed multiplier logic if enabled
-    if($('#drip-check').checked) {
-        let runs = parseInt($('#m-runs').value) || 1;
-        profit = profit * runs; 
-    }
-
-    $('#profit-res').innerText = window.currConfig.sym + ' ' + profit.toFixed(2);
-    $('#profit-res').style.color = profit >= 0 ? '#059669' : '#dc2626';
 }
 
 // Events
@@ -823,8 +847,11 @@ $('#order-form').addEventListener('submit', function(e) {
     if(!currSvc) return;
     let qty = parseInt($('#m-qty').value) || 0;
     
-    if(qty < currSvc.min) { e.preventDefault(); alert(`Minimum quantity is ${currSvc.min}`); return; }
-    if(qty > currSvc.max) { e.preventDefault(); alert(`Maximum quantity is ${currSvc.max}`); return; }
+    // Skip Min/Max check for Packages
+    if(currSvc.type !== 'Package') {
+        if(qty < currSvc.min) { e.preventDefault(); alert(`Minimum quantity is ${currSvc.min}`); return; }
+        if(qty > currSvc.max) { e.preventDefault(); alert(`Maximum quantity is ${currSvc.max}`); return; }
+    }
 });
 
 // Search
@@ -917,6 +944,117 @@ window.genReceipt = function(id) {
             let a = document.createElement('a'); a.download = 'Service-Info-' + id + '.png'; a.href = c.toDataURL('image/png'); a.click();
         });
     }, 100);
+}
+
+// --- 🧠 AI LOGIC ---
+async function generateAiComments() {
+    if(!currSvc) return;
+    let btnText = document.getElementById('ai-btn-txt');
+    let originalText = btnText.innerText;
+    
+    let link = document.getElementById('m-link').value;
+    if(!link) { alert("Please paste the Post Link first!"); return; }
+
+    // 🔥 Ask for Mood First
+    const { value: mood } = await Swal.fire({
+        title: 'Choose Comment Tone',
+        input: 'select',
+        inputOptions: {
+            'Positive': '❤️ Positive (Love/Support)',
+            'Funny': '😂 Funny & Witty',
+            'Questioning': '🤔 Engaging Questions',
+            'Professional': '👔 Professional / Business',
+            'Savage': '🔥 Savage / Roast (Use carefully)'
+        },
+        inputPlaceholder: 'Select a mood...',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: 'Generate 🚀'
+    });
+
+    if (mood) {
+        btnText.innerText = "⏳ Writing...";
+        
+        fetch('ai_helper.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `action=generate_comments&service_name=${encodeURIComponent(currSvc.name)}&link=${encodeURIComponent(link)}&mood=${encodeURIComponent(mood)}`
+        })
+        .then(r => r.json())
+        .then(d => {
+            if(d.status === 'success') {
+                document.getElementById('m-com').value = d.data;
+                $('#m-com').dispatchEvent(new Event('input'));
+            } else {
+                alert(d.message);
+            }
+            btnText.innerText = originalText;
+        })
+        .catch(e => {
+            alert("AI Error: Connection failed.");
+            btnText.innerText = originalText;
+        });
+    }
+}
+
+function toggleAiChat() {
+    const box = document.getElementById('ai-chat-box');
+    box.style.display = (box.style.display === 'flex') ? 'none' : 'flex';
+}
+
+function handleAiEnter(e) {
+    if(e.key === 'Enter') sendAiMessage();
+}
+
+function sendAiMessage() {
+    let input = document.getElementById('ai-input');
+    let msg = input.value.trim();
+    if(!msg) return;
+
+    let chatBody = document.getElementById('ai-messages');
+    
+    // Add User Message
+    let uDiv = document.createElement('div');
+    uDiv.className = 'ai-msg ai-user';
+    uDiv.innerText = msg;
+    chatBody.appendChild(uDiv);
+    
+    input.value = '';
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    // Loading Indicator
+    let loadingDiv = document.createElement('div');
+    loadingDiv.className = 'ai-msg ai-bot';
+    loadingDiv.innerText = 'typing...';
+    loadingDiv.id = 'ai-loading';
+    chatBody.appendChild(loadingDiv);
+
+    fetch('ai_helper.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `action=ask_assistant&query=${encodeURIComponent(msg)}`
+    })
+    .then(r => r.json())
+    .then(d => {
+        document.getElementById('ai-loading').remove();
+        let bDiv = document.createElement('div');
+        bDiv.className = 'ai-msg ai-bot';
+        
+        if(d.status === 'success') {
+            bDiv.innerHTML = d.reply; // HTML allowed for bold/links
+        } else {
+            bDiv.innerText = "Error: " + d.message;
+        }
+        chatBody.appendChild(bDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    })
+    .catch(e => {
+        document.getElementById('ai-loading').remove();
+        let bDiv = document.createElement('div');
+        bDiv.className = 'ai-msg ai-bot';
+        bDiv.innerText = "Network Error.";
+        chatBody.appendChild(bDiv);
+    });
 }
 </script>
 <?php include '_smm_footer.php'; ?>
