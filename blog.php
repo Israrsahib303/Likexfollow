@@ -3,12 +3,12 @@
 require_once 'includes/db.php';
 require_once 'includes/helpers.php';
 
-// Pagination
+// Pagination Logic
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 9; 
 $offset = ($page - 1) * $limit;
 
-// Database Fetch
+// Fetch Published Blogs
 try {
     $stmt = $db->prepare("SELECT * FROM blogs WHERE status='published' ORDER BY created_at DESC LIMIT ? OFFSET ?");
     $stmt->bindValue(1, $limit, PDO::PARAM_INT);
@@ -23,116 +23,228 @@ try {
     $total_pages = 0;
 }
 
-// SEO
-$page_title = "Blog - Secrets of Social Media Growth";
+// Set Page Title
+$page_title = "Blog - Insights & Strategies";
 ob_start();
 include 'user/_header.php';
 $header_html = ob_get_clean();
-// Force Title Update using Regex
+// Force Title Update
 $header_html = preg_replace('/<title>(.*?)<\/title>/', "<title>$page_title</title>", $header_html);
 echo $header_html;
 ?>
 
-<div class="relative bg-[#0f172a] pt-32 pb-20 overflow-hidden">
-    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[100px] animate-pulse"></div>
-        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/20 blur-[100px] animate-pulse" style="animation-delay: 2s"></div>
-    </div>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f5f5f7; /* Apple Grey BG */
+        color: #1d1d1f;
+    }
 
-    <div class="max-w-7xl mx-auto px-6 relative z-10 text-center">
-        <span class="inline-block py-1 px-3 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-sm font-bold tracking-wider mb-6 animate-fade-in-up">
-            ✨ AI POWERED INSIGHTS
-        </span>
-        <h1 class="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-6 leading-tight animate-fade-in-up" style="animation-delay: 0.1s">
-            Master the <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Algorithm.</span>
+    /* Glass Header Effect */
+    .glass-header {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    /* Apple-style Gradient Text */
+    .text-gradient-purple {
+        background: linear-gradient(135deg, #a855f7 0%, #d946ef 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    /* Blog Card Design - Text Focused */
+    .blog-card {
+        background: #ffffff;
+        border-radius: 24px;
+        transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); /* Soft shadow */
+        border: 1px solid rgba(0,0,0,0.06); /* Subtle border */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        padding: 40px; /* Generous padding for spacing */
+    }
+
+    .blog-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 6px;
+        background: linear-gradient(90deg, #a855f7, #d946ef); /* Top accent line */
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .blog-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        border-color: rgba(168, 85, 247, 0.3); /* Purple tint on border hover */
+    }
+
+    .blog-card:hover::before {
+        opacity: 1;
+    }
+
+    /* Date Badge */
+    .date-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #86868b;
+        margin-bottom: 1.5rem;
+        display: block;
+    }
+
+    /* Typography */
+    .blog-title {
+        font-size: 1.75rem; /* Larger Title */
+        font-weight: 800;
+        line-height: 1.25;
+        color: #1d1d1f;
+        margin-bottom: 1.25rem;
+        letter-spacing: -0.02em;
+        transition: color 0.2s;
+    }
+    
+    .blog-card:hover .blog-title {
+        color: #7c3aed; /* Purple on hover */
+    }
+
+    .blog-desc {
+        font-size: 1.05rem;
+        color: #6e6e73;
+        line-height: 1.7;
+        margin-bottom: 2rem;
+        flex-grow: 1; /* Pushes button to bottom */
+    }
+
+    /* Action Button */
+    .btn-read {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px 28px;
+        background: #f5f5f7;
+        color: #1d1d1f;
+        font-weight: 600;
+        font-size: 0.95rem;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        align-self: flex-start; /* Align left */
+    }
+
+    .btn-read:hover {
+        background: #7c3aed;
+        color: white;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+        animation: fadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        opacity: 0;
+    }
+</style>
+
+<div class="relative pt-40 pb-20 overflow-hidden bg-white border-b border-gray-100">
+    <div class="absolute inset-0 bg-[radial-gradient(#f3e8ff_1px,transparent_1px)] [background-size:20px_20px] opacity-30"></div>
+
+    <div class="max-w-4xl mx-auto px-6 relative z-10 text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 border border-gray-200 mb-8 animate-in" style="animation-delay: 0.1s">
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+            <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">LikexFollow Blog</span>
+        </div>
+
+        <h1 class="text-5xl md:text-7xl font-bold tracking-tight text-[#1d1d1f] mb-8 animate-in" style="animation-delay: 0.2s">
+            Written for <br>
+            <span class="text-gradient-purple">Growth Hackers.</span>
         </h1>
-        <p class="text-lg text-slate-400 max-w-2xl mx-auto mb-10 animate-fade-in-up" style="animation-delay: 0.2s">
-            Discover the latest strategies to grow your TikTok, Instagram, and YouTube. Automated content generated by our intelligent AI engine.
+        
+        <p class="text-xl text-[#86868b] font-normal leading-relaxed animate-in" style="animation-delay: 0.3s">
+            Deep dives into social media algorithms, monetization strategies, and viral trends. Pure insights, no fluff.
         </p>
     </div>
 </div>
 
-<div class="bg-slate-50 min-h-screen py-20 relative">
-    <div class="max-w-7xl mx-auto px-6">
+<div class="py-24 px-6 min-h-screen">
+    <div class="max-w-7xl mx-auto">
         
         <?php if(!empty($blogs)): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                
                 <?php foreach($blogs as $index => $blog): 
-                    // Random Gradients for Cards
-                    $gradients = [
-                        'from-blue-600 to-indigo-700',
-                        'from-purple-600 to-pink-600',
-                        'from-emerald-500 to-teal-700',
-                        'from-orange-500 to-red-600'
-                    ];
-                    $bg_class = $gradients[$index % count($gradients)];
-                    $delay = ($index % 3) * 100; // Staggered animation
+                    // Staggered Animation Delay
+                    $delay = ($index % 3) * 0.1 + 0.4;
                 ?>
                 
-                <article class="group relative bg-white rounded-[2rem] shadow-xl hover:shadow-2xl transition-all duration-500 border border-slate-100 overflow-hidden flex flex-col h-full hover:-translate-y-2" data-aos="fade-up" data-aos-delay="<?= $delay ?>">
+                <article class="blog-card animate-in" style="animation-delay: <?= $delay ?>s">
                     
-                    <div class="h-56 w-full bg-gradient-to-br <?= $bg_class ?> relative overflow-hidden flex items-center justify-center p-6 group-hover:scale-105 transition-transform duration-700">
-                        <div class="absolute inset-0 bg-[url('assets/img/grid.svg')] opacity-20"></div>
-                        <h2 class="text-2xl font-bold text-white text-center leading-snug drop-shadow-md line-clamp-3">
-                            <?= htmlspecialchars($blog['title']) ?>
-                        </h2>
-                    </div>
+                    <span class="date-badge">
+                        <?= date('F j, Y', strtotime($blog['created_at'])) ?>
+                    </span>
 
-                    <div class="p-8 flex-1 flex flex-col relative">
-                        <div class="absolute -top-5 right-8 bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded-full shadow-lg border border-slate-700">
-                            <?= date('M d', strtotime($blog['created_at'])) ?>
-                        </div>
+                    <h2 class="blog-title">
+                        <?= htmlspecialchars($blog['title']) ?>
+                    </h2>
 
-                        <div class="flex items-center gap-3 mb-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                            <span class="flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> <?= number_format($blog['views']) ?> Views</span>
-                            <span>•</span>
-                            <span>5 Min Read</span>
-                        </div>
+                    <p class="blog-desc">
+                        <?= htmlspecialchars(substr($blog['meta_desc'], 0, 160)) ?>...
+                    </p>
 
-                        <p class="text-slate-500 text-sm leading-relaxed mb-6 line-clamp-3 flex-1">
-                            <?= htmlspecialchars(substr($blog['meta_desc'], 0, 120)) ?>...
-                        </p>
+                    <a href="blog_view.php?slug=<?= $blog['slug'] ?>" class="btn-read group">
+                        Read Article
+                        <i data-lucide="arrow-right" class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
 
-                        <div class="mt-auto border-t border-slate-100 pt-6 flex justify-between items-center">
-                            <span class="text-slate-400 text-sm font-medium">By LikexFollow AI</span>
-                            
-                            <a href="blog_view.php?slug=<?= $blog['slug'] ?>" class="relative inline-flex items-center justify-center px-6 py-2.5 overflow-hidden font-bold text-white transition-all duration-300 bg-indigo-600 rounded-full group-hover:bg-indigo-700 group-hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2">
-                                <span class="relative flex items-center gap-2">
-                                    Read Article <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                                </span>
-                            </a>
-                        </div>
-                    </div>
                 </article>
                 <?php endforeach; ?>
+
             </div>
 
             <?php if($total_pages > 1): ?>
-            <div class="mt-16 flex justify-center gap-3">
+            <div class="mt-24 flex justify-center gap-3 animate-in" style="animation-delay: 0.8s">
                 <?php if($page > 1): ?>
-                    <a href="?page=<?= $page-1 ?>" class="w-12 h-12 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition shadow-sm">←</a>
+                    <a href="?page=<?= $page-1 ?>" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 hover:border-purple-500 hover:text-purple-600 transition shadow-sm">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </a>
                 <?php endif; ?>
 
                 <?php for($i=1; $i<=$total_pages; $i++): ?>
-                    <a href="?page=<?= $i ?>" class="w-12 h-12 flex items-center justify-center rounded-full font-bold transition shadow-sm <?= ($page == $i) ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50' ?>">
+                    <a href="?page=<?= $i ?>" class="w-12 h-12 flex items-center justify-center rounded-xl font-semibold text-sm transition shadow-sm <?= ($page == $i) ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50' ?>">
                         <?= $i ?>
                     </a>
                 <?php endfor; ?>
 
                 <?php if($page < $total_pages): ?>
-                    <a href="?page=<?= $page+1 ?>" class="w-12 h-12 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition shadow-sm">→</a>
+                    <a href="?page=<?= $page+1 ?>" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 hover:border-purple-500 hover:text-purple-600 transition shadow-sm">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </a>
                 <?php endif; ?>
             </div>
             <?php endif; ?>
 
         <?php else: ?>
-            <div class="text-center py-32">
-                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-indigo-50 text-indigo-500 mb-6 animate-bounce">
-                    <i data-lucide="bot" class="w-12 h-12"></i>
+            <div class="text-center py-40 animate-in">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 text-gray-400 mb-6">
+                    <i data-lucide="file-text" class="w-10 h-10"></i>
                 </div>
-                <h3 class="text-3xl font-bold text-slate-800 mb-2">AI Brain is Processing...</h3>
-                <p class="text-slate-500 max-w-md mx-auto">
-                    The automated writer is generating fresh content based on current trends. Check back in 5 minutes!
+                <h3 class="text-2xl font-bold text-gray-900 mb-3">No Articles Found</h3>
+                <p class="text-gray-500 max-w-md mx-auto">
+                    The AI is currently researching new topics. Check back soon.
                 </p>
             </div>
         <?php endif; ?>
@@ -141,18 +253,8 @@ echo $header_html;
 </div>
 
 <script>
+    // Initialize Icons
     lucide.createIcons();
 </script>
-
-<style>
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-in-up {
-        animation: fadeInUp 0.8s ease-out forwards;
-        opacity: 0;
-    }
-</style>
 
 <?php include 'user/_footer.php'; ?>
