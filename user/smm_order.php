@@ -2,7 +2,7 @@
 include '_smm_header.php';
 $user_id = (int)$_SESSION['user_id'];
 
-// --- 1. CURRENCY & SETTINGS ---
+// --- 1. CURRENCY ---
 $curr_code = $_COOKIE['site_currency'] ?? 'PKR';
 $curr_rate = 1;
 $curr_sym = 'Rs';
@@ -29,9 +29,8 @@ $cardDesign = $saved_design ? json_decode($saved_design, true) : [
 // --- 3. DATA FETCHING ---
 try {
     $stmt = $db->query("
-        SELECT s.*, f.id as is_favorite, p.api_url as provider_api
+        SELECT s.*, p.api_url as provider_api
         FROM smm_services s
-        LEFT JOIN user_favorite_services f ON s.id = f.service_id AND f.user_id = $user_id
         LEFT JOIN smm_providers p ON s.provider_id = p.id
         WHERE s.is_active = 1
         ORDER BY s.category ASC, s.name ASC
@@ -53,8 +52,8 @@ try {
         'Snapchat' => ['filters' => ['Followers','Story Views','Score'], 'icon' => 'Snapchat.png'],
         'Whatsapp' => ['filters' => ['Channel Members','Status Views'], 'icon' => 'Whatsapp.png'], 
         'Linkedin' => ['filters' => ['Followers','Connections','Likes'], 'icon' => 'default.png'],
-        'Twitch' => ['filters' => ['Followers','Views','Live'], 'icon' => 'default.png'],
-        'Netflix' => ['filters' => ['Premium','Screens'], 'icon' => 'default.png']
+        'Google' => ['filters' => ['Reviews','Views','Live'], 'icon' => 'Google.png'],
+        'Website' => ['filters' => ['Traffic','Screens'], 'icon' => 'website.png']
     ];
 
     foreach ($all_services as $s) {
@@ -69,7 +68,7 @@ try {
                 if(trim($kApp) == 'X ') $app_name = 'Twitter';
                 $app_filters = $data['filters'];
                 $found = true;
-                break;
+                $break;
             }
         }
         
@@ -86,14 +85,10 @@ try {
         $is_manual = ((int)$s['provider_id'] === 0 || $s['provider_api'] === 'manual_internal');
 
         $icon_char = '🟢'; 
-        if (stripos($s['name'], 'Best') !== false || stripos($s['name'], 'Recommended') !== false || stripos($s['name'], 'VIP') !== false) $icon_char = '🔥';
+        if (stripos($s['name'], 'Best') !== false || stripos($s['name'], 'VIP') !== false) $icon_char = '🔥';
         elseif (stripos($s['avg_time'], 'Instant') !== false) $icon_char = '⚡';
-        elseif (stripos($s['avg_time'], 'hour') !== false) $icon_char = '🟡';
 
-        $has_drip = 1; 
-        if(isset($s['dripfeed']) && ($s['dripfeed'] == 0 || $s['dripfeed'] == '0')) {
-            $has_drip = 0;
-        }
+        $has_drip = (isset($s['dripfeed']) && $s['dripfeed'] == 1) ? 1 : 0;
 
         $services_json[$s['id']] = [
             'rate' => (float)$s['service_rate'],
@@ -107,10 +102,11 @@ try {
             'is_manual' => $is_manual,
             'name' => sanitize($s['name']),
             'category' => sanitize($full_cat), 
-            'desc' => nl2br($s['description'] ?? 'No details available.'),
+            'desc' => nl2br($s['description'] ?? 'No details.'),
             'is_comment' => $is_comment,
             'icon' => $icon_char,
-            'app' => strtolower($app_name)
+            'app' => strtolower($app_name),
+            'app_key' => md5($app_name) // Used for linking
         ];
     }
     ksort($grouped_apps);
@@ -120,9 +116,9 @@ try {
 $logo_url = !empty($site_logo) ? "../assets/img/$site_logo" : "";
 ?>
 
-<link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
-<script src="[https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js](https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js)"></script>
-<script src="[https://cdn.jsdelivr.net/npm/sweetalert2@11](https://cdn.jsdelivr.net/npm/sweetalert2@11)"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     window.currConfig = { code: "<?=$curr_code?>", rate: <?=$curr_rate?>, sym: "<?=$curr_symbol?>" };
@@ -135,18 +131,18 @@ $logo_url = !empty($site_logo) ? "../assets/img/$site_logo" : "";
     <?php endforeach; ?>
 </script>
 
-<link href="[https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap](https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap)" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-/* --- 🎨 MAIN THEME --- */
+/* --- MAIN THEME --- */
 :root { --primary: #4f46e5; --bg-body: #f8fafc; --card-bg: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --radius: 16px; }
 body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; color: var(--text-main); font-size: 15px; overflow-x: hidden; }
 
-/* GRID & CARDS */
+/* GRID */
 .platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-bottom: 30px; animation: fadeIn 0.5s; }
 .platform-card {
     background: var(--card-bg); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border);
-    text-align: center; cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden;
+    text-align: center; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden;
 }
 .platform-card:hover { border-color: var(--primary); transform: translateY(-5px); box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.15); }
 .platform-icon { width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px; transition: 0.3s; }
@@ -155,8 +151,6 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 
 /* APP VIEW */
 .app-container { display: none; animation: slideIn 0.3s ease-out; }
-@keyframes slideIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
-
 .top-nav { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
 .back-btn {
     background: #fff; border: 1px solid var(--border); padding: 10px 15px; border-radius: 12px;
@@ -165,7 +159,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 }
 .back-btn:hover { border-color: var(--primary); color: var(--primary); transform: translateX(-3px); }
 
-/* Smart Filter Chips */
+/* FILTERS */
 .filter-wrap { overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; scrollbar-width: none; }
 .filter-scroll { display: flex; gap: 8px; }
 .filter-chip { 
@@ -173,11 +167,10 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
     white-space: nowrap; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-sub); 
     transition: 0.2s; display: flex; align-items: center; gap: 6px;
 }
-.filter-chip img { width: 16px; height: 16px; object-fit: contain; }
 .filter-chip:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); }
-.filter-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
+.filter-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-/* Categories & Services */
+/* SERVICES */
 .cat-group { margin-bottom: 15px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: 0.3s; }
 .cat-header {
     padding: 16px 20px; cursor: pointer; font-weight: 800; background: #f8fafc; color: #334155;
@@ -189,6 +182,13 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 .service-item {
     padding: 18px 20px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: 0.2s; position: relative;
 }
+/* 🔥 HIGHLIGHT ANIMATION */
+.service-item.blinking-highlight {
+    animation: flash 1s infinite alternate;
+    border-left: 5px solid var(--primary);
+}
+@keyframes flash { from { background: #fff; } to { background: #e0e7ff; } }
+
 .service-item:hover { background: #fcfaff; padding-left: 25px; border-left: 4px solid var(--primary); }
 .service-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .service-name { font-weight: 600; font-size: 0.95rem; color: var(--text-main); line-height: 1.4; flex: 1; padding-right: 10px; }
@@ -227,71 +227,39 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
     box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; display: flex; flex-direction: column;
     max-height: 90vh; animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); border: 1px solid #fff;
 }
-.modal-header {
-    padding: 20px 25px; background: #fff; border-bottom: 1px solid #f1f5f9;
-    display: flex; justify-content: space-between; align-items: center;
-}
+.modal-header { padding: 20px 25px; background: #fff; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 .modal-close { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; color: #64748b; transition: 0.2s; }
 .modal-close:hover { background: #fee2e2; color: #ef4444; transform: rotate(90deg); }
 .modal-body { padding: 25px; overflow-y: auto; }
 
-/* Stats & Desc */
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
 .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; text-align: center; }
 .stat-box small { display: block; font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
 .stat-box b { font-size: 0.9rem; color: #334155; }
+.desc-box { background: #fff; border: 1px dashed #cbd5e1; border-radius: 12px; font-size: 0.85rem; color: #64748b; margin-bottom: 20px; padding: 15px; max-height: 100px; overflow-y: auto; line-height: 1.6; }
 
-.desc-box {
-    background: #fff; border: 1px dashed #cbd5e1; border-radius: 12px;
-    font-size: 0.85rem; color: #64748b; margin-bottom: 20px; padding: 15px;
-    max-height: 100px; overflow-y: auto; line-height: 1.6;
-}
-
-/* Form */
 .form-group { margin-bottom: 18px; }
 .form-label { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; color: #334155; }
 .input-wrap { position: relative; }
-.form-input { 
-    width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 14px; 
-    font-size: 1rem; outline: none; transition: 0.2s; background: #fff; color: #0f172a;
-}
+.form-input { width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 14px; font-size: 1rem; outline: none; transition: 0.2s; background: #fff; color: #0f172a; }
 .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
-.paste-btn {
-    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-    background: #eff6ff; color: var(--primary); border: none; padding: 6px 10px;
-    border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
-}
+.paste-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: #eff6ff; color: var(--primary); border: none; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
 .paste-btn:hover { background: var(--primary); color: #fff; }
 
-/* 🛡️ Link Error with Icon */
-.link-err-box { 
-    margin-top: 8px; padding: 10px; background: #fef2f2; border: 1px solid #fecaca; 
-    border-radius: 10px; display: none; align-items: center; gap: 10px; animation: shake 0.4s;
-}
-.link-err-icon { width: 30px; height: 30px; }
-.link-err-text { font-size: 0.85rem; color: #991b1b; font-weight: 600; line-height: 1.3; }
-
-/* 🚀 Improved Drip Feed */
-.drip-toggle {
-    background: #f0f9ff; border: 1px solid #bae6fd; padding: 12px; border-radius: 12px;
-    cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
-}
-.drip-toggle input { accent-color: var(--primary); width: 18px; height: 18px; }
-.drip-area { 
-    display: none; background: #fff; border: 1px solid #e2e8f0; border-top: none; 
-    border-radius: 0 0 12px 12px; padding: 15px; margin-top: -15px; margin-bottom: 20px; 
-}
-.drip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-.drip-guide { font-size: 0.8rem; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 8px; margin-top: 10px; }
-
-.btn-submit {
-    width: 100%; padding: 16px; background: var(--primary); color: #fff; font-weight: 800; font-size: 1rem;
-    border: none; border-radius: 14px; cursor: pointer; margin-top: 15px;
-    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); transition: 0.3s;
-}
+.btn-submit { width: 100%; padding: 16px; background: var(--primary); color: #fff; font-weight: 800; font-size: 1rem; border: none; border-radius: 14px; cursor: pointer; margin-top: 15px; box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); transition: 0.3s; }
 .btn-submit:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4); }
 
-/* === 🤖 AI CHATBOT (FLOATING) === */
+/* === 🤖 AI CHATBOT (Redesigned: Centered & Animated) === */
+
+/* Backdrop overlay */
+.ai-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); z-index: 9990;
+    opacity: 0; transition: opacity 0.3s ease;
+}
+.ai-overlay.active { display: block; opacity: 1; }
+
+/* The Floating Action Button */
 .ai-fab {
     position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px;
     background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 50%;
@@ -302,100 +270,119 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 .ai-fab:hover { transform: scale(1.1); box-shadow: 0 15px 35px rgba(99, 102, 241, 0.5); }
 .ai-fab i { font-size: 28px; color: white; animation: pulse 2s infinite; }
 
+/* The Chat Box (Centered) */
 .ai-box {
-    position: fixed; bottom: 100px; right: 30px; width: 360px; height: 500px;
-    background: #fff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.15);
-    display: none; flex-direction: column; overflow: hidden; z-index: 9999;
-    border: 1px solid var(--border); animation: slideUp 0.3s ease-out;
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+    width: 90%; max-width: 500px; height: 75vh; max-height: 700px;
+    background: #fff; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    display: flex; flex-direction: column; overflow: hidden; z-index: 9999;
+    opacity: 0; pointer-events: none; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255,255,255,0.5);
 }
+
+/* Active State for Box */
+.ai-box.active {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1; pointer-events: all;
+}
+
+/* Header - Slimmer & Smaller Logo */
 .ai-header {
-    background: linear-gradient(135deg, #a855f7, #6366f1); padding: 20px;
-    color: white; display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #a855f7, #6366f1); 
+    padding: 10px 18px; /* Slimmer padding */
+    height: 55px; /* Fixed small height */
+    color: white; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
-.ai-avatar { width: 40px; height: 40px; background: white; border-radius: 50%; padding: 2px; }
-.ai-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.ai-body { flex: 1; padding: 15px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 10px; }
-.ai-msg { padding: 10px 15px; border-radius: 12px; font-size: 0.9rem; max-width: 85%; line-height: 1.4; }
-.ai-bot { background: #fff; border: 1px solid #e5e7eb; border-bottom-left-radius: 0; align-self: flex-start; color: #374151; }
-.ai-user { background: #6366f1; color: white; border-bottom-right-radius: 0; align-self: flex-end; }
-.ai-footer { padding: 15px; background: white; border-top: 1px solid #f3f4f6; display: flex; gap: 10px; }
-.ai-input { flex: 1; padding: 10px 15px; border: 1px solid #e5e7eb; border-radius: 50px; outline: none; }
-.ai-send { width: 40px; height: 40px; border-radius: 50%; background: #6366f1; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ai-avatar {
+    width: 28px; height: 28px; /* Small icon container */
+    background: white; border-radius: 50%; padding: 2px;
+    display: flex; justify-content: center; align-items: center;
+}
+.ai-avatar img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
 
-/* === 🔥 FIXED RECEIPT CSS === */
-#receipt-node {
-    position: absolute;
-    left: -9999px; /* Pushes it off-screen, NOT behind */
-    top: 0;
-    width: 500px;
-    background: #fff;
-    /* Do NOT use z-index negative or display none */
-}
+.ai-header h4 { margin: 0; font-size: 0.95rem; font-weight: 700; }
+.ai-header span { font-size: 0.7rem; opacity: 0.9; }
 
-/* Receipt Styles */
-.rec-header {
-    padding: 40px 30px;
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    color: white;
-    display: flex; align-items: center; justify-content: space-between;
-    position: relative; overflow: hidden;
+/* Close & Tools */
+.ai-tools { margin-left: auto; display: flex; gap: 15px; align-items: center; }
+.ai-tools i, .ai-tools span { cursor: pointer; font-size: 1rem; opacity: 0.8; transition: 0.2s; }
+.ai-tools i:hover, .ai-tools span:hover { opacity: 1; transform: scale(1.1); }
+
+/* Body & Messages */
+.ai-body { 
+    flex: 1; padding: 20px; overflow-y: auto; background: #f3f4f6; 
+    display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; 
 }
-.rec-header::after {
-    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-    transform: rotate(30deg);
-}
-.rec-logo-box { position: relative; z-index: 10; display: flex; align-items: center; gap: 15px; }
-.rec-logo { height: 50px; object-fit: contain; background: #fff; padding: 5px; border-radius: 12px; }
-.rec-badge {
-    position: relative; z-index: 10;
-    background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 50px;
-    font-size: 12px; font-weight: 700; text-transform: uppercase;
-    backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.3);
-}
-.rec-body { padding: 40px 30px; background: #ffffff; }
-.rec-svc-name {
-    font-size: 26px; font-weight: 900; color: #1e293b; line-height: 1.3;
-    margin-bottom: 25px; padding-bottom: 25px; border-bottom: 2px dashed #e2e8f0;
-}
-.rec-price-box {
-    background: #f8fafc; border-radius: 20px; padding: 25px;
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 30px; border: 2px solid #e2e8f0;
-}
-.rec-p-lbl { font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; }
-.rec-p-val { font-size: 36px; font-weight: 900; color: #4f46e5; }
-.rec-stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px; }
-.rec-stat-pill {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
-    padding: 15px 10px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-}
-.rec-stat-lbl { font-size: 11px; text-transform: uppercase; font-weight: 800; color: #94a3b8; margin-bottom: 5px; }
-.rec-stat-val { font-size: 14px; font-weight: 800; color: #334155; }
-.rec-desc-wrap {
-    font-size: 14px; line-height: 1.6; padding: 20px;
-    background: #f0f9ff; border-radius: 16px; color: #0369a1; border: 1px solid #bae6fd; font-weight: 500;
-}
-.rec-footer {
-    padding: 25px 30px; background: #f8fafc; border-top: 1px solid #e2e8f0;
-    display: flex; justify-content: space-between; align-items: center;
-}
-.rec-footer-text { font-size: 14px; font-weight: 600; color: #64748b; }
-.rec-wa { 
-    font-weight: 800; font-size: 18px; color: #25D366; 
-    display: flex; align-items: center; gap: 10px; 
-    background: #dcfce7; padding: 8px 16px; border-radius: 50px;
+.ai-msg { 
+    padding: 12px 16px; border-radius: 14px; font-size: 0.95rem; 
+    max-width: 80%; line-height: 1.5; word-wrap: break-word; 
+    position: relative; animation: msgPopIn 0.3s ease forwards;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
 }
 
-@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-@keyframes zoomIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
-@keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
-@keyframes pulse { 0% { transform:scale(1); } 50% { transform:scale(1.1); } 100% { transform:scale(1); } }
+/* Bot Message */
+.ai-bot { 
+    background: #fff; border-bottom-left-radius: 2px; align-self: flex-start; 
+    color: #1f2937; border: 1px solid #e5e7eb;
+}
+/* User Message */
+.ai-user { 
+    background: linear-gradient(135deg, #6366f1, #4f46e5); 
+    color: white; border-bottom-right-radius: 2px; align-self: flex-end; 
+    box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+}
+
+/* Animations */
+@keyframes msgPopIn {
+    0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Typing Animation (Three dots) */
+.typing-dots { display: inline-flex; gap: 4px; padding: 5px 8px; align-items: center; }
+.typing-dots span {
+    width: 6px; height: 6px; background: #9ca3af; border-radius: 50%;
+    animation: bounce 1.4s infinite ease-in-out both;
+}
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+/* Footer */
+.ai-footer { 
+    padding: 15px; background: white; border-top: 1px solid #e5e7eb; 
+    display: flex; gap: 12px; align-items: center; 
+}
+.ai-input { 
+    flex: 1; padding: 14px 20px; border: 1px solid #e5e7eb; border-radius: 30px; 
+    outline: none; background: #f9fafb; font-size: 0.95rem; transition: 0.2s;
+}
+.ai-input:focus { background: #fff; border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1); }
+.ai-send {
+    width: 45px; height: 45px; border-radius: 50%; border: none;
+    background: linear-gradient(135deg, #a855f7, #6366f1); color: white;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+    transition: 0.2s;
+}
+.ai-send:hover { transform: scale(1.05) rotate(-10deg); }
+
+/* View Button in Chat */
+.btn-ai-view {
+    display: inline-block; margin-top: 10px; padding: 8px 14px; background: #10b981; color: white;
+    font-size: 0.8rem; font-weight: 700; border-radius: 10px; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 6px rgba(16, 185, 129, 0.2); transition: 0.2s; border:none;
+}
+.btn-ai-view:hover { transform: translateY(-2px); box-shadow: 0 5px 10px rgba(16, 185, 129, 0.3); }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
 @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+@keyframes pulse { 0% { transform:scale(1); } 50% { transform:scale(1.1); } 100% { transform:scale(1); } }
 </style>
 
 <div class="container">
-    
     <div class="search-wrap" style="position:relative; margin-bottom:30px;">
         <input type="text" id="search" class="form-input" style="padding-left:45px;" placeholder="Search services (e.g. Instagram, Likes)...">
         <span style="position:absolute; left:15px; top:50%; transform:translateY(-50%); font-size:1.2rem;">🔍</span>
@@ -434,8 +421,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
             </div>
 
             <div class="filter-wrap">
-                <div class="filter-scroll" id="filters-<?= md5($appName) ?>">
-                    </div>
+                <div class="filter-scroll" id="filters-<?= md5($appName) ?>"></div>
             </div>
             
             <?php foreach($data['services'] as $catName => $services): ?>
@@ -450,7 +436,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                         $s_icon = $services_json[$s['id']]['icon'];
                         $is_manual = ((int)$s['provider_id'] === 0 || $s['provider_api'] === 'manual_internal');
                     ?>
-                    <div class="service-item" data-name="<?= strtolower(sanitize($s['name'])) ?>" onclick="openModal(<?= $s['id'] ?>)">
+                    <div class="service-item" id="svc-<?= $s['id'] ?>" data-name="<?= strtolower(sanitize($s['name'])) ?>" onclick="openModal(<?= $s['id'] ?>)">
                         <div class="service-top">
                             <span class="service-name">
                                 <span class="svc-icon"><?= $s_icon ?></span> <?= sanitize($s['name']) ?>
@@ -465,9 +451,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                             <?php if($is_manual): ?><span class="tag tag-manual">🛠️ Manual</span><?php endif; ?>
                             
                             <div class="service-actions">
-                                <button class="btn-receipt" onclick="event.stopPropagation(); genReceipt(<?= $s['id'] ?>)">
-                                    📄 Info
-                                </button>
+                                <button class="btn-receipt" onclick="event.stopPropagation(); genReceipt(<?= $s['id'] ?>)">📄 Info</button>
                                 <a href="service_card.php?id=<?php echo $s['id']; ?>" target="_blank" class="btn-card-maker" onclick="event.stopPropagation();">🎨 Card</a>
                             </div>
                         </div>
@@ -479,7 +463,6 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
         </div>
         <?php endforeach; ?>
     </div>
-
 </div>
 
 <div class="modal-overlay" id="order-modal">
@@ -489,11 +472,8 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
         <div class="modal-body">
-            
             <div id="m-stats" class="stats-grid"></div>
-            
             <div id="m-desc" class="desc-box"></div>
-
             <form action="smm_order_action.php" method="POST" id="order-form">
                 <input type="hidden" name="service_id" id="m-id">
                 
@@ -519,18 +499,17 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                         <input type="checkbox" id="drip-check" onchange="toggleDrip()"> 
                         <span><b>Auto-Likes / Drip-feed</b> (Schedule)</span>
                     </label>
-                    
                     <div class="drip-area" id="drip-fields">
                         <input type="hidden" name="dripfeed" id="drip-val" value="0">
                         <div class="drip-grid">
                             <div>
-                                <label class="form-label" style="font-size:0.8rem;">Runs (Baar)</label>
-                                <input type="number" name="runs" id="m-runs" class="form-input" placeholder="e.g. 5" min="1">
+                                <label class="form-label" style="font-size:0.8rem;">Runs</label>
+                                <input type="number" name="runs" id="m-runs" class="form-input" min="1">
                             </div>
                             <div>
-                                <label class="form-label" style="font-size:0.8rem;">Gap (Time)</label>
+                                <label class="form-label" style="font-size:0.8rem;">Gap</label>
                                 <div style="display:flex; gap:5px;">
-                                    <input type="number" id="m-interval-raw" class="form-input" placeholder="30" min="1" style="flex:1">
+                                    <input type="number" id="m-interval-raw" class="form-input" style="flex:1">
                                     <select id="m-interval-unit" class="form-input" style="width:80px; padding:5px;">
                                         <option value="1">Min</option>
                                         <option value="60">Hour</option>
@@ -539,9 +518,6 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                                 </div>
                                 <input type="hidden" name="interval" id="m-interval">
                             </div>
-                        </div>
-                        <div id="drip-guide" class="drip-guide">
-                            💡 <b>Example:</b> If Qty 1000 & Runs 5 -> System will send 1000 likes, 5 times. Total: 5000.
                         </div>
                     </div>
                 </div>
@@ -553,7 +529,7 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
                             ✨ Generate with AI
                         </button>
                     </div>
-                    <textarea name="comments" id="m-com" class="form-input" rows="4" placeholder="Nice post!&#10;Great!"></textarea>
+                    <textarea name="comments" id="m-com" class="form-input" rows="4" placeholder="Nice post!"></textarea>
                 </div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin:15px 0;">
@@ -570,26 +546,26 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 
 <div id="receipt-node"></div>
 
+<div class="ai-overlay" id="ai-overlay" onclick="toggleAiChat()"></div>
+
 <div class="ai-fab" onclick="toggleAiChat()">
     <i class="fa-solid fa-robot"></i>
 </div>
 
 <div class="ai-box" id="ai-chat-box">
     <div class="ai-header">
-        <div class="ai-avatar">
-            <img src="../assets/img/icons/ai.png" onerror="this.src='[https://cdn-icons-png.flaticon.com/512/4712/4712035.png](https://cdn-icons-png.flaticon.com/512/4712/4712035.png)'">
+        <div class="ai-avatar"><img src="../assets/img/icons/ai.png" onerror="this.src='../assets/img/logo.png'"></div>
+        <div style="flex:1">
+            <h4 style="margin:0;">Israr Liaqat Ai</h4>
+            <span style="font-size:0.7rem; opacity:0.8; display:block;">● Online & Ready</span>
         </div>
-        <div>
-            <h4 style="margin:0; font-size:1rem;">Israr Liaqat Ai</h4>
-            <span style="font-size:0.75rem; opacity:0.8;">● Online</span>
+        <div class="ai-tools">
+            <i class="fa fa-eraser" onclick="clearChat()" title="Clear Chat"></i>
+            <span onclick="toggleAiChat()" style="font-size:1.2rem;">✕</span>
         </div>
-        <span onclick="toggleAiChat()" style="margin-left:auto; cursor:pointer;">✕</span>
     </div>
     <div class="ai-body" id="ai-messages">
-        <div class="ai-msg ai-bot">
-            Assalam-o-Alaikum! 👋<br>Main hoon Israr Liaqat Ai.<br>Bataiye main aapki kya madad kar sakta hoon? Sasti service dhoondni hai?
         </div>
-    </div>
     <div class="ai-footer">
         <input type="text" id="ai-input" class="ai-input" placeholder="Ask anything..." onkeypress="handleAiEnter(event)">
         <button class="ai-send" onclick="sendAiMessage()"><i class="fa-solid fa-paper-plane"></i></button>
@@ -600,22 +576,15 @@ body { background-color: var(--bg-body); font-family: 'Outfit', sans-serif; colo
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
-// --- 1. DYNAMIC FILTERS PER APP ---
+// --- 1. DYNAMIC FILTERS ---
 function openApp(appId, appName) {
     $('#platform-grid').style.display='none'; 
     $$('.app-container').forEach(x=>x.style.display='none'); 
+    $('#app-'+appId).style.display='block';
     
-    const appContainer = $('#app-'+appId);
-    appContainer.style.display='block';
-    
-    // Generate Filters dynamically
     const filterBox = $('#filters-'+appId);
-    filterBox.innerHTML = ''; // Clear old
-    
-    // Default filters if not defined
-    let tags = window.appFilters[appId] || ['Followers', 'Likes', 'Views'];
-    // Add 'All' chip
-    tags = ['All', ...tags];
+    filterBox.innerHTML = ''; 
+    let tags = ['All', ...(window.appFilters[appId] || ['Followers', 'Likes', 'Views'])];
 
     tags.forEach(tag => {
         let icon = getFilterIcon(tag);
@@ -623,10 +592,9 @@ function openApp(appId, appName) {
         chip.className = `filter-chip ${tag === 'All' ? 'active' : ''}`;
         chip.innerHTML = `${icon} ${tag}`;
         chip.onclick = function() { 
-            // Handle Active UI
             filterBox.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
             this.classList.add('active');
-            filterServices(tag, appContainer); 
+            filterServices(tag, $('#app-'+appId)); 
         };
         filterBox.appendChild(chip);
     });
@@ -638,7 +606,6 @@ function getFilterIcon(tag) {
     if(tag.includes('view')) return '<i class="fa fa-eye" style="color:#3b82f6"></i>';
     if(tag.includes('follow') || tag.includes('sub')) return '<i class="fa fa-user-plus" style="color:#10b981"></i>';
     if(tag.includes('comment')) return '<i class="fa fa-comment" style="color:#f59e0b"></i>';
-    if(tag.includes('watch')) return '<i class="fa fa-clock" style="color:#8b5cf6"></i>';
     return '🔹';
 }
 
@@ -652,26 +619,18 @@ function toggleCat(el) {
     l.style.display = (l.style.display === 'block') ? 'none' : 'block'; 
 }
 
-// --- 2. FILTER LOGIC ---
 function filterServices(tag, container) {
     let key = tag.toLowerCase();
-    
     container.querySelectorAll('.service-item').forEach(item => {
         let name = item.dataset.name;
-        if(key === 'all') {
-            item.style.display = 'block';
-        } else {
-            // Smart matching (e.g. 'subs' matches 'subscribers')
+        if(key === 'all') { item.style.display = 'block'; } 
+        else {
             let match = false;
             if(key.includes('sub') && name.includes('sub')) match = true;
-            else if(key.includes('page') && name.includes('page')) match = true;
             else if(name.includes(key)) match = true;
-            
             item.style.display = match ? 'block' : 'none';
         }
     });
-
-    // Auto-hide empty categories
     container.querySelectorAll('.cat-group').forEach(group => {
         let visible = group.querySelectorAll('.service-item[style="display: block;"]').length;
         if(visible > 0) {
@@ -683,41 +642,7 @@ function filterServices(tag, container) {
     });
 }
 
-// --- 3. LINK VALIDATOR (Advanced) ---
-const appPatterns = {
-    'instagram': { regex: /instagram\.com/, name: 'Instagram', icon: 'Instagram.png' },
-    'tiktok': { regex: /tiktok\.com/, name: 'TikTok', icon: 'TikTok.png' },
-    'youtube': { regex: /(youtube\.com|youtu\.be)/, name: 'Youtube', icon: 'Youtube.png' },
-    'facebook': { regex: /(facebook\.com|fb\.watch)/, name: 'Facebook', icon: 'Facebook.png' },
-    'twitter': { regex: /(twitter\.com|x\.com)/, name: 'Twitter', icon: 'Twitter.png' },
-    'spotify': { regex: /spotify\.com/, name: 'Spotify', icon: 'Spotify.png' },
-    'telegram': { regex: /t\.me/, name: 'Telegram', icon: 'Telegram.png' }
-};
-
-function validateLink(url) {
-    if(!currSvc || !url) return;
-    $('#link-err').style.display = 'none';
-    
-    let currentApp = currSvc.app; // e.g. 'instagram'
-    
-    // Check if it matches ANY other app
-    for (const [key, data] of Object.entries(appPatterns)) {
-        if (key !== currentApp && data.regex.test(url)) {
-            // FOUND MISMATCH
-            $('#err-icon').src = `../assets/img/icons/${data.icon}`;
-            $('#err-text').innerHTML = `Wrong Link! You pasted a <b>${data.name}</b> link.<br>This service is for <b>${currentApp.charAt(0).toUpperCase() + currentApp.slice(1)}</b>.`;
-            $('#link-err').style.display = 'flex';
-            return;
-        }
-    }
-}
-$('#m-link').addEventListener('input', function(){ validateLink(this.value); });
-async function pasteLink() {
-    try { const text = await navigator.clipboard.readText(); $('#m-link').value = text; validateLink(text); } 
-    catch (err) { alert('Paste manually.'); }
-}
-
-// --- 4. ORDER MODAL LOGIC ---
+// --- 2. MODAL & LOGIC ---
 let currSvc = null;
 
 function openModal(id) {
@@ -725,58 +650,30 @@ function openModal(id) {
     currSvc = s;
     $('#m-id').value=id; 
     $('#min-max').innerText = `Min: ${s.min} | Max: ${s.max}`;
-    
-    // Set browser validation
     $('#m-qty').setAttribute('min', s.min);
     $('#m-qty').setAttribute('max', s.max);
+    $('#m-desc').innerText = s.desc.replace(/<[^>]*>?/gm, ''); 
     
-    $('#m-desc').innerText = s.desc.replace(/<[^>]*>?/gm, ''); // Clean Text
-    
-    // Colors
     let rC=s.refill?'#10b981':'#ef4444', cC=s.cancel?'#10b981':'#ef4444';
     $('#m-stats').innerHTML = `
-        <div class="stat-box"><small>Average Time</small><b>${s.avg}</b></div>
-        <div class="stat-box" style="border-bottom:3px solid ${rC}"><small>Refill</small><b style="color:${rC}">${s.refill?'Available':'No Refill'}</b></div>
-        <div class="stat-box" style="border-bottom:3px solid ${cC}"><small>Cancel</small><b style="color:${cC}">${s.cancel?'Available':'No Cancel'}</b></div>
+        <div class="stat-box"><small>Avg Time</small><b>${s.avg}</b></div>
+        <div class="stat-box" style="border-bottom:3px solid ${rC}"><small>Refill</small><b style="color:${rC}">${s.refill?'Yes':'No'}</b></div>
+        <div class="stat-box" style="border-bottom:3px solid ${cC}"><small>Cancel</small><b style="color:${cC}">${s.cancel?'Yes':'No'}</b></div>
     `;
 
-    // Reset Form
     $('#m-qty').value=''; $('#m-com').value=''; $('#m-link').value='';
     $('#m-total').innerText = window.currConfig.sym + ' 0.00';
-    $('#m-hint').innerHTML = '';
     $('#link-err').style.display='none';
-    
-    // Drip Feed Reset
-    $('#drip-check').checked = false;
-    $('#drip-fields').style.display = 'none';
-    $('#drip-val').value = '0';
-    
-    // === 🔥 UPDATED: PACKAGE / CUSTOM / DEFAULT LOGIC ===
+    $('#drip-check').checked = false; $('#drip-fields').style.display = 'none';
+
     if(s.type === 'Package') {
-        // PACKAGE: No Qty, Fixed Price
-        $('#grp-qty').style.display='none'; 
-        $('#grp-com').style.display='none'; 
-        $('#grp-drip').style.display = 'none'; 
-        $('#m-qty').value = '1'; // Force value to bypass HTML validation
-        $('#m-qty').readOnly = true;
-        updatePrice(1); // Calculate fixed price immediately
+        $('#grp-qty').style.display='none'; $('#grp-com').style.display='none'; $('#grp-drip').style.display = 'none'; 
+        $('#m-qty').value = '1'; $('#m-qty').readOnly = true; updatePrice(1);
     } else if(s.is_comment || s.type === 'Custom Comments') { 
-        // CUSTOM COMMENTS
-        $('#grp-qty').style.display='none'; 
-        $('#grp-com').style.display='block'; 
-        $('#m-qty').readOnly=true; 
-        $('#grp-drip').style.display = 'none'; 
+        $('#grp-qty').style.display='none'; $('#grp-com').style.display='block'; $('#m-qty').readOnly=true; $('#grp-drip').style.display = 'none'; 
     } else { 
-        // DEFAULT SERVICE
-        $('#grp-qty').style.display='block'; 
-        $('#grp-com').style.display='none'; 
-        $('#m-qty').readOnly=false; 
-        
-        if(s.drip == 1) {
-             $('#grp-drip').style.display = 'block'; 
-        } else {
-             $('#grp-drip').style.display = 'none'; 
-        }
+        $('#grp-qty').style.display='block'; $('#grp-com').style.display='none'; $('#m-qty').readOnly=false; 
+        $('#grp-drip').style.display = s.drip ? 'block' : 'none';
     }
 
     $('.modal-overlay').classList.add('active');
@@ -784,7 +681,6 @@ function openModal(id) {
 }
 function closeModal() { $('.modal-overlay').classList.remove('active'); }
 
-// --- 5. DRIP FEED & PRICE ---
 function toggleDrip() {
     const on = $('#drip-check').checked;
     $('#drip-fields').style.display = on ? 'block' : 'none';
@@ -792,65 +688,28 @@ function toggleDrip() {
     updatePrice(parseInt($('#m-qty').value)||0);
 }
 
-function updateDripMath() {
-    let raw = parseInt($('#m-interval-raw').value) || 0;
-    let unit = parseInt($('#m-interval-unit').value) || 1;
-    $('#m-interval').value = raw * unit;
-}
-$('#m-interval-raw').addEventListener('input', updateDripMath);
-$('#m-interval-unit').addEventListener('change', updateDripMath);
-
 function updatePrice(qty) {
     if(!currSvc) return;
-    
-    let multiplier = 1;
-    let runs = 0;
-    
-    // Drip Logic
-    if($('#drip-check').checked) {
-        runs = parseInt($('#m-runs').value) || 0;
-        if(runs > 0) multiplier = runs;
-        
-        let total = qty * multiplier;
-        $('#drip-guide').innerHTML = `💡 <b>Calculation:</b> ${qty} (Qty) x ${multiplier} (Runs) = <b>${total} Total Quantity</b>.`;
-    }
-
+    let multiplier = ($('#drip-check').checked) ? (parseInt($('#m-runs').value)||0) : 1;
+    if(multiplier < 1) multiplier = 1;
     let totalQty = qty * multiplier;
-    let p = 0;
-
-    // === 🔥 FIXED: PRICE CALCULATION ===
-    if(currSvc.type === 'Package') {
-        // For Packages: Rate is the total price (fixed)
-        p = currSvc.rate;
-    } else {
-        // For Default: Rate is per 1000
-        p = (totalQty/1000)*currSvc.rate;
-    }
-
+    
+    let p = (currSvc.type === 'Package') ? currSvc.rate : (totalQty/1000)*currSvc.rate;
     if(window.currConfig.code!=='PKR') p*=window.currConfig.rate;
     
     $('#m-total').innerText = window.currConfig.sym + ' ' + p.toFixed(2);
-
-    // Hints
-    let hints = '';
-    if(totalQty >= 1000) hints += `<span class="hint-promo" style="color:#10b981">🚀 Good volume! Priority processing.</span>`;
-    $('#m-hint').innerHTML = hints;
 }
 
 // Events
 $('#m-qty').addEventListener('input', function(){ updatePrice(parseInt(this.value)||0) });
 $('#m-runs').addEventListener('input', function(){ updatePrice(parseInt($('#m-qty').value)||0) });
 $('#m-com').addEventListener('input', function(){ let c=this.value.split('\n').filter(x=>x.trim()!=='').length; $('#m-qty').value=c; updatePrice(c); });
-
-// Validation on Submit
 $('#order-form').addEventListener('submit', function(e) {
     if(!currSvc) return;
     let qty = parseInt($('#m-qty').value) || 0;
-    
-    // Skip Min/Max check for Packages
     if(currSvc.type !== 'Package') {
-        if(qty < currSvc.min) { e.preventDefault(); alert(`Minimum quantity is ${currSvc.min}`); return; }
-        if(qty > currSvc.max) { e.preventDefault(); alert(`Maximum quantity is ${currSvc.max}`); return; }
+        if(qty < currSvc.min) { e.preventDefault(); alert(`Min qty: ${currSvc.min}`); return; }
+        if(qty > currSvc.max) { e.preventDefault(); alert(`Max qty: ${currSvc.max}`); return; }
     }
 });
 
@@ -864,117 +723,23 @@ $('#search').addEventListener('input', function(e){
     else { closeApp(); }
 });
 
-// --- 🔥 FIXED: DYNAMIC RECEIPT GENERATOR ---
-window.genReceipt = function(id) {
-    let s = window.svcData[id];
-    let d = window.cardDesign || {};
-
-    let container = document.getElementById('receipt-node');
-    container.innerHTML = '';
-    
-    let p = s.rate; 
-    if(window.currConfig.code !== 'PKR') p *= window.currConfig.rate;
-    
-    let displayPrice = (p < 1 && p > 0) ? p.toFixed(4) : p.toFixed(2);
-    let priceText = window.currConfig.sym + ' ' + displayPrice + ' ' + window.currConfig.code;
-    let waText = window.siteData.wa ? window.siteData.wa : "Contact Support";
-
-    const blocks = {
-        'logo': `
-            <div class="rec-header">
-                <div class="rec-logo-box">
-                    ${window.siteData.logo ? `<img src="${window.siteData.logo}" class="rec-logo">` : `<h2 style="margin:0;">${window.siteData.name}</h2>`}
-                </div>
-                <div class="rec-badge">Trusted ✅</div>
-            </div>`,
-        'title': `
-            <div class="rec-body">
-                <div class="rec-svc-name">${s.name}</div>
-            </div>`,
-        'price': `
-            <div style="padding: 0 30px;">
-                <div class="rec-price-box">
-                    <div class="rec-p-lbl">Rate per 1000</div>
-                    <div class="rec-p-val">${priceText}</div>
-                </div>
-            </div>`,
-        'stats': `
-            <div style="padding: 0 30px;">
-                <div class="rec-stats-row">
-                    <div class="rec-stat-pill">
-                        <div class="rec-stat-lbl">Time</div>
-                        <div class="rec-stat-val">${s.avg}</div>
-                    </div>
-                    <div class="rec-stat-pill">
-                        <div class="rec-stat-lbl">Refill</div>
-                        <div class="rec-stat-val" style="color:${s.refill ? '#16a34a' : '#dc2626'}">${s.refill?'Yes':'No'}</div>
-                    </div>
-                    <div class="rec-stat-pill">
-                        <div class="rec-stat-lbl">Cancel</div>
-                        <div class="rec-stat-val" style="color:${s.cancel ? '#16a34a' : '#dc2626'}">${s.cancel?'Yes':'No'}</div>
-                    </div>
-                </div>
-            </div>`,
-        'details': `
-            <div style="padding: 0 30px 30px 30px;">
-                <div class="rec-desc-wrap">
-                    ${s.desc.replace(/<[^>]*>/g, '').substring(0, 250) + (s.desc.length>250?'...':'')}
-                </div>
-            </div>`,
-        'footer': `
-            <div class="rec-footer">
-                <div class="rec-footer-text">Order Now on ${window.siteData.name}</div>
-                <div class="rec-wa">
-                    <img src="../assets/img/icons/Whatsapp.png" style="width:20px;height:20px;">
-                    <span>${waText}</span>
-                </div>
-            </div>`
-    };
-
-    container.innerHTML = blocks['logo'] + blocks['title'] + blocks['price'] + blocks['stats'] + blocks['details'] + blocks['footer'];
-
-    // FIXED DOWNLOAD: Using absolute position off-screen instead of z-index
-    setTimeout(() => {
-        html2canvas($('#receipt-node'), { 
-            scale: 3, 
-            useCORS: true, 
-            allowTaint: true, 
-            backgroundColor: '#ffffff'
-        }).then(c => {
-            let a = document.createElement('a'); a.download = 'Service-Info-' + id + '.png'; a.href = c.toDataURL('image/png'); a.click();
-        });
-    }, 100);
-}
-
-// --- 🧠 AI LOGIC ---
+// AI Logic (Comments & Chat)
 async function generateAiComments() {
     if(!currSvc) return;
     let btnText = document.getElementById('ai-btn-txt');
     let originalText = btnText.innerText;
-    
     let link = document.getElementById('m-link').value;
     if(!link) { alert("Please paste the Post Link first!"); return; }
 
-    // 🔥 Ask for Mood First
     const { value: mood } = await Swal.fire({
-        title: 'Choose Comment Tone',
+        title: 'Comment Mood?',
         input: 'select',
-        inputOptions: {
-            'Positive': '❤️ Positive (Love/Support)',
-            'Funny': '😂 Funny & Witty',
-            'Questioning': '🤔 Engaging Questions',
-            'Professional': '👔 Professional / Business',
-            'Savage': '🔥 Savage / Roast (Use carefully)'
-        },
-        inputPlaceholder: 'Select a mood...',
-        showCancelButton: true,
-        confirmButtonColor: '#4f46e5',
-        confirmButtonText: 'Generate 🚀'
+        inputOptions: { 'Positive': '❤️ Love/Positive', 'Funny': '😂 Funny', 'Savage': '🔥 Savage' },
+        showCancelButton: true
     });
 
     if (mood) {
         btnText.innerText = "⏳ Writing...";
-        
         fetch('ai_helper.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -985,25 +750,73 @@ async function generateAiComments() {
             if(d.status === 'success') {
                 document.getElementById('m-com').value = d.data;
                 $('#m-com').dispatchEvent(new Event('input'));
-            } else {
-                alert(d.message);
-            }
+            } else { alert(d.message); }
             btnText.innerText = originalText;
         })
-        .catch(e => {
-            alert("AI Error: Connection failed.");
-            btnText.innerText = originalText;
-        });
+        .catch(e => { btnText.innerText = originalText; });
     }
 }
 
+// Chat Functions
 function toggleAiChat() {
     const box = document.getElementById('ai-chat-box');
-    box.style.display = (box.style.display === 'flex') ? 'none' : 'flex';
+    const overlay = document.getElementById('ai-overlay');
+    
+    // Toggle Active Class for Animation
+    if (box.classList.contains('active')) {
+        box.classList.remove('active');
+        overlay.classList.remove('active');
+    } else {
+        box.classList.add('active');
+        overlay.classList.add('active');
+        loadChatHistory();
+        setTimeout(() => document.getElementById('ai-input').focus(), 300);
+    }
 }
 
-function handleAiEnter(e) {
-    if(e.key === 'Enter') sendAiMessage();
+function handleAiEnter(e) { if(e.key === 'Enter') sendAiMessage(); }
+
+function appendMessage(sender, text) {
+    let chatBody = document.getElementById('ai-messages');
+    let div = document.createElement('div');
+    div.className = `ai-msg ai-${sender}`;
+    
+    // Parse [VIEW:ID] to Button
+    if(sender === 'bot') {
+        text = text.replace(/\[VIEW:(\d+)\]/g, '<button class="btn-ai-view" onclick="locateService($1)">👁 View Service</button>');
+    }
+    div.innerHTML = text;
+    chatBody.appendChild(div);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    
+    // Save to LocalStorage
+    let history = JSON.parse(localStorage.getItem('ai_chat_history') || '[]');
+    history.push({sender, text});
+    localStorage.setItem('ai_chat_history', JSON.stringify(history));
+}
+
+function loadChatHistory() {
+    let chatBody = document.getElementById('ai-messages');
+    if(chatBody.innerHTML.trim() !== '') return; // Already loaded
+    
+    let history = JSON.parse(localStorage.getItem('ai_chat_history') || '[]');
+    if(history.length === 0) {
+        appendMessage('bot', "Assalam-o-Alaikum! 👋<br>Main Israr Liaqat Ai hoon.<br>Bataiye kya seva karoon?");
+    } else {
+        history.forEach(msg => {
+            let div = document.createElement('div');
+            div.className = `ai-msg ai-${msg.sender}`;
+            div.innerHTML = msg.text.replace(/\[VIEW:(\d+)\]/g, '<button class="btn-ai-view" onclick="locateService($1)">👁 View Service</button>');
+            chatBody.appendChild(div);
+        });
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+}
+
+function clearChat() {
+    localStorage.removeItem('ai_chat_history');
+    document.getElementById('ai-messages').innerHTML = '';
+    appendMessage('bot', "Chat cleared. Nayi shuruat karein! 🚀");
 }
 
 function sendAiMessage() {
@@ -1011,50 +824,67 @@ function sendAiMessage() {
     let msg = input.value.trim();
     if(!msg) return;
 
-    let chatBody = document.getElementById('ai-messages');
-    
-    // Add User Message
-    let uDiv = document.createElement('div');
-    uDiv.className = 'ai-msg ai-user';
-    uDiv.innerText = msg;
-    chatBody.appendChild(uDiv);
-    
+    appendMessage('user', msg);
     input.value = '';
-    chatBody.scrollTop = chatBody.scrollHeight;
 
-    // Loading Indicator
-    let loadingDiv = document.createElement('div');
-    loadingDiv.className = 'ai-msg ai-bot';
-    loadingDiv.innerText = 'typing...';
-    loadingDiv.id = 'ai-loading';
-    chatBody.appendChild(loadingDiv);
+    // Show Animated Typing Indicator
+    let chatBody = document.getElementById('ai-messages');
+    let loadDiv = document.createElement('div');
+    loadDiv.className = 'ai-msg ai-bot';
+    loadDiv.id = 'ai-loading';
+    loadDiv.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    chatBody.appendChild(loadDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
 
     fetch('ai_helper.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `action=ask_assistant&query=${encodeURIComponent(msg)}`
+        body: `action=ask_assistant&query=${encodeURIComponent(msg)}&curr_code=${window.currConfig.code}&curr_rate=${window.currConfig.rate}&curr_sym=${window.currConfig.sym}`
     })
     .then(r => r.json())
     .then(d => {
         document.getElementById('ai-loading').remove();
-        let bDiv = document.createElement('div');
-        bDiv.className = 'ai-msg ai-bot';
-        
         if(d.status === 'success') {
-            bDiv.innerHTML = d.reply; // HTML allowed for bold/links
+            appendMessage('bot', d.reply);
         } else {
-            bDiv.innerText = "Error: " + d.message;
+            appendMessage('bot', "Error: " + d.message);
         }
-        chatBody.appendChild(bDiv);
-        chatBody.scrollTop = chatBody.scrollHeight;
     })
     .catch(e => {
         document.getElementById('ai-loading').remove();
-        let bDiv = document.createElement('div');
-        bDiv.className = 'ai-msg ai-bot';
-        bDiv.innerText = "Network Error.";
-        chatBody.appendChild(bDiv);
+        appendMessage('bot', "Network Error.");
     });
+}
+
+// Locate & Highlight Service
+function locateService(id) {
+    toggleAiChat(); // Close Chat
+    let s = window.svcData[id];
+    if(!s) { alert("Service not found!"); return; }
+    
+    // 1. Open App Container
+    let appKey = s.app_key; 
+    let appName = s.app; // e.g. instagram
+    
+    // Reset view
+    $('#platform-grid').style.display='none'; 
+    $$('.app-container').forEach(x=>x.style.display='none'); 
+
+    // Find container that has this service
+    let targetItem = document.getElementById(`svc-${id}`);
+    if(targetItem) {
+        let parentApp = targetItem.closest('.app-container');
+        parentApp.style.display = 'block';
+        
+        let parentCat = targetItem.closest('.cat-group');
+        parentCat.querySelector('.svc-list').style.display = 'block';
+        
+        targetItem.scrollIntoView({behavior: "smooth", block: "center"});
+        targetItem.classList.add('blinking-highlight');
+        setTimeout(() => targetItem.classList.remove('blinking-highlight'), 3000);
+    } else {
+        alert("Service is currently hidden or disabled.");
+    }
 }
 </script>
 <?php include '_smm_footer.php'; ?>
