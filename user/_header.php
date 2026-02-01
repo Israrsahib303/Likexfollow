@@ -9,6 +9,62 @@ if (file_exists(__DIR__ . '/../includes/db.php')) {
     require_once __DIR__ . '/../includes/db.php'; 
 }
 
+// --- 🔒 1.5 REAL-TIME BAN CHECK ---
+if (isset($_SESSION['user_id'])) {
+    // Check status directly from DB
+    $chk_stmt = $db->prepare("SELECT status FROM users WHERE id = ?");
+    $chk_stmt->execute([$_SESSION['user_id']]);
+    $uStatus = $chk_stmt->fetchColumn();
+
+    if ($uStatus === 'banned') {
+        // Destroy session and redirect to login for Popup
+        session_unset();
+        session_destroy();
+        header("Location: ../login.php"); 
+        exit;
+    }
+}
+
+// --- 🚨 1.6 MANDATORY WHATSAPP COLLECTION TRAP (START) ---
+// Logic: If user is logged in BUT phone number is empty -> Show Uncloseable Popup
+$show_wa_trap = false;
+$wa_error = '';
+
+if (isset($_SESSION['user_id'])) {
+    
+    // A. Handle Form Submission (Jab user number daal kar button dabaye)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_wa_trap'])) {
+        $phone_input = sanitize($_POST['wa_phone']);
+        
+        // Basic Validation (Length check)
+        if (!empty($phone_input) && strlen($phone_input) >= 10) {
+            // Update DB
+            $upd = $db->prepare("UPDATE users SET phone = ? WHERE id = ?");
+            $upd->execute([$phone_input, $_SESSION['user_id']]);
+            
+            // Reload Page to Unlock
+            header("Location: " . $_SERVER['REQUEST_URI']);
+            exit;
+        } else {
+            $wa_error = "Invalid Number! Please enter correct WhatsApp number.";
+            $show_wa_trap = true; // Show popup again with error
+        }
+    }
+    
+    // B. Check Database if Phone is Missing
+    if (!$show_wa_trap) {
+        $stmt_ph = $db->prepare("SELECT phone FROM users WHERE id = ?");
+        $stmt_ph->execute([$_SESSION['user_id']]);
+        $uPhone = $stmt_ph->fetchColumn();
+
+        // Agar phone column khali hai ya NULL hai -> TRAP ACTIVE
+        if (empty($uPhone)) {
+            $show_wa_trap = true;
+        }
+    }
+}
+// ---------------------------------------------------------
+
 // --- 2. USER BALANCE LOGIC ---
 $user_id = $_SESSION['user_id'] ?? 0;
 $user_balance = 0.00;
@@ -200,9 +256,112 @@ $og_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+        /* --- 🚨 WHATSAPP TRAP CSS (FLYING ICONS + BLUR) --- */
+        <?php if($show_wa_trap): ?>
+        /* Locks the screen */
+        body { overflow: hidden; height: 100vh; }
+        
+        .wa-trap-overlay {
+            position: fixed; inset: 0; 
+            background: rgba(255, 255, 255, 0.6); 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            z-index: 99999; 
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        
+        .wa-trap-modal {
+            background: white; width: 90%; max-width: 420px; padding: 40px 30px;
+            border-radius: 24px; text-align: center; position: relative; z-index: 10;
+            box-shadow: 0 30px 60px -15px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+            animation: bounceIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .wa-float-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+        
+        .wa-fly-icon {
+            position: absolute; color: #25D366; opacity: 0;
+            font-size: 2rem; animation: floatUp linear infinite;
+        }
+
+        /* Flying Animation Keyframes */
+        @keyframes floatUp { 
+            0% { transform: translateY(110vh) rotate(0deg); opacity:0; } 
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity:0; } 
+        }
+        @keyframes bounceIn { from{ transform: scale(0.8); opacity:0; } to{ transform: scale(1); opacity:1; } }
+        
+        /* Modal Elements */
+        .wt-icon { 
+            width: 80px; height: 80px; background: #dcfce7; color: #16a34a; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            font-size: 40px; margin: 0 auto 20px; 
+            box-shadow: 0 0 0 10px rgba(37, 211, 102, 0.1);
+        }
+        .wt-title { font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+        .wt-desc { color: #64748b; font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5; }
+        
+        .wt-input {
+            width: 100%; padding: 16px; border: 2px solid #cbd5e1; border-radius: 14px;
+            font-size: 1.1rem; font-weight: 600; outline: none; transition: 0.2s;
+            margin-bottom: 15px; background: #f8fafc; text-align: center; color: #334155;
+        }
+        .wt-input:focus { border-color: #25D366; background: white; box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.15); }
+        .wt-input::placeholder { color: #94a3b8; font-weight: 500; }
+
+        .wt-btn {
+            width: 100%; padding: 16px; background: #25D366; color: white;
+            font-weight: 700; border: none; border-radius: 14px; cursor: pointer;
+            font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.2s; box-shadow: 0 10px 20px -5px rgba(37, 211, 102, 0.3);
+        }
+        .wt-btn:hover { background: #1ebc59; transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(37, 211, 102, 0.4); }
+        
+        .wt-error { 
+            background: #fef2f2; color: #ef4444; padding: 10px; border-radius: 10px;
+            font-size: 0.85rem; margin-bottom: 15px; font-weight: 600; border: 1px solid #fee2e2;
+        }
+        <?php endif; ?>
     </style>
 </head>
 <body>
+
+<?php if($show_wa_trap): ?>
+    <div class="wa-trap-overlay">
+        <div class="wa-float-container">
+            <i class="fa-brands fa-whatsapp wa-fly-icon" style="left: 10%; animation-duration: 7s; font-size: 3rem;"></i>
+            <i class="fa-brands fa-whatsapp wa-fly-icon" style="left: 25%; animation-duration: 11s; font-size: 2rem;"></i>
+            <i class="fa-brands fa-whatsapp wa-fly-icon" style="left: 45%; animation-duration: 9s; font-size: 4rem;"></i>
+            <i class="fa-brands fa-whatsapp wa-fly-icon" style="left: 70%; animation-duration: 6s; font-size: 2.5rem;"></i>
+            <i class="fa-brands fa-whatsapp wa-fly-icon" style="left: 85%; animation-duration: 10s; font-size: 3.5rem;"></i>
+            <i class="fa-brands fa-whatsapp wa-fly-icon" style="left: 60%; animation-duration: 13s; font-size: 1.5rem;"></i>
+        </div>
+
+        <div class="wa-trap-modal">
+            <div class="wt-icon"><i class="fa-brands fa-whatsapp"></i></div>
+            <h2 class="wt-title">One Last Step!</h2>
+            <p class="wt-desc">
+                Please enter your <b>WhatsApp Number</b> to activate your account. We use this for urgent updates only.
+            </p>
+
+            <?php if(!empty($wa_error)): ?>
+                <div class="wt-error"><i class="fa-solid fa-circle-exclamation"></i> <?= $wa_error ?></div>
+            <?php endif; ?>
+
+            <form method="POST">
+                <input type="hidden" name="submit_wa_trap" value="1">
+                
+                <input type="text" name="wa_phone" class="wt-input" placeholder="e.g. +92 300 1234567" required autofocus autocomplete="tel">
+                
+                <button type="submit" class="wt-btn">
+                    Save & Continue <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
 
 <?php include '_nav.php'; ?>
 
