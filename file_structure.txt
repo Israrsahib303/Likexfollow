@@ -22,6 +22,7 @@ manifest.json
 manifest.php
 master_fix.php
 panel/
+premium_store.php
 register.php
 reset_password.php
 service-worker.js
