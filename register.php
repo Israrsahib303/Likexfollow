@@ -1,26 +1,40 @@
 <?php
-// register.php - Premium Signup with WhatsApp Collection
-// Beast9 Final: Consistent UI + Data Collection
+// register.php - Premium Signup with WhatsApp Trap for Google Users
+// Beast9 Final: Consistent UI + Data Collection + Google Interception
 
 ob_start(); // Buffering start for header redirects
-session_start(); 
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/db.php'; // Ensure DB connection is active
+
 if (file_exists(__DIR__ . '/includes/google_config.php')) {
     require_once __DIR__ . '/includes/google_config.php';
 }
 
-if (isLoggedIn()) {
-    redirect(SITE_URL . '/index.php');
+// --- 0. AUTO-FIX DATABASE (Ensure phone column exists) ---
+try {
+    $db->exec("ALTER TABLE users ADD COLUMN phone VARCHAR(50) NULL AFTER email");
+} catch (Exception $e) { /* Column likely exists, ignore error */ }
+
+// --- 1. GOOGLE SIGNUP LOGIC (Intercept New Google Users) ---
+// If google_callback returned a "new_google_user" session flag
+$show_whatsapp_popup = false;
+if (isset($_SESSION['new_google_user_data'])) {
+    $show_whatsapp_popup = true;
+}
+
+if (isLoggedIn() && !$show_whatsapp_popup) {
+    redirect('user/index.php');
 }
 
 $error = '';
 $success = '';
 $email = '';
 $name = '';
-$phone = ''; // Phone variable
+$phone = ''; 
 
-// --- 1. GENERATE MATH CHALLENGE ---
+// --- 2. GENERATE MATH CHALLENGE ---
 if (!isset($_SESSION['math_num1']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $_SESSION['math_num1'] = rand(1, 9); 
     $_SESSION['math_num2'] = rand(1, 9);
@@ -29,80 +43,122 @@ $num1 = $_SESSION['math_num1'];
 $num2 = $_SESSION['math_num2'];
 $math_solution = $num1 + $num2;
 
+// --- 3. HANDLE FORM SUBMISSION ---
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $name = sanitize($_POST['name']);
-    $email = sanitize($_POST['email']);
-    $phone = sanitize($_POST['phone']); // Capture Phone
-    $password = $_POST['password'];
-    $password_confirm = $_POST['password_confirm'];
-    $csrf_token = $_POST['csrf_token'] ?? '';
     
-    // Captcha Answer from User
-    $user_math_ans = isset($_POST['math_ans']) ? (int)$_POST['math_ans'] : 0;
-
-    // --- 2. SECURITY & VALIDATION CHECKS ---
-    if ($user_math_ans !== $math_solution) {
-        $error = '⚠️ Incorrect Math Answer. Please try again.';
-        // Reset Captcha on error
-        $_SESSION['math_num1'] = rand(1, 9); 
-        $_SESSION['math_num2'] = rand(1, 9);
-    }
-    elseif (!verifyCsrfToken($csrf_token)) {
-        $error = 'Security check failed. Please refresh.';
-    }
-    elseif (preg_match('/(http|www|\.com|💳|\*|\$|RUB|BAM|link)/i', $name)) {
-        $error = '⚠️ Spam detected in name. Please use your real name.';
-    }
-    // Check Empty Fields
-    elseif (empty($name) || empty($email) || empty($phone) || empty($password) || empty($password_confirm)) {
-        $error = 'Please fill in all fields, including WhatsApp number.';
-    } 
-    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Invalid email format.';
-    } 
-    elseif ($password !== $password_confirm) {
-        $error = 'Passwords do not match.';
-    } 
-    elseif (strlen($password) < 6) {
-        $error = 'Password must be at least 6 characters long.';
-    } 
-    else {
-        try {
-            // Check if Email Exists
-            $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                $error = 'Email is already registered.';
-            } else {
-                // --- 3. CREATE ACCOUNT ---
-                $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $verification_token = bin2hex(random_bytes(32)); 
-                
-                // Insert with Phone Number
-                $stmt = $db->prepare("INSERT INTO users (name, email, phone, password_hash, is_admin, created_at, is_verified, verification_token) VALUES (?, ?, ?, ?, 0, NOW(), 1, ?)");
-                
-                if ($stmt->execute([$name, $email, $phone, $password_hash, $verification_token])) {
+    // CASE A: FINALIZE GOOGLE SIGNUP (WhatsApp Submission)
+    if (isset($_POST['google_final_step']) && isset($_SESSION['new_google_user_data'])) {
+        $phone = sanitize($_POST['phone']);
+        
+        if (empty($phone)) {
+            $error = 'Please enter your WhatsApp number to continue.';
+            $show_whatsapp_popup = true;
+        } else {
+            // Retrieve Google Data
+            $gData = $_SESSION['new_google_user_data'];
+            $name = $gData['name'];
+            $email = $gData['email'];
+            $google_id = $gData['google_id'];
+            
+            // Random Password for Google Users
+            $random_pass = bin2hex(random_bytes(8)); 
+            $hash = password_hash($random_pass, PASSWORD_DEFAULT);
+            
+            try {
+                // Insert New User WITH Phone
+                $stmt = $db->prepare("INSERT INTO users (name, email, phone, password_hash, google_id, is_admin, role, created_at, is_verified) VALUES (?, ?, ?, ?, ?, 0, 'user', NOW(), 1)");
+                if ($stmt->execute([$name, $email, $phone, $hash, $google_id])) {
                     
-                    // --- AUTO LOGIN ---
                     $new_user_id = $db->lastInsertId();
+                    
+                    // Set Login Session
                     $_SESSION['user_id'] = $new_user_id;
                     $_SESSION['email'] = $email;
-                    $_SESSION['name'] = $name;
-                    $_SESSION['is_admin'] = 0; 
+                    $_SESSION['is_admin'] = 0;
+                    $_SESSION['role'] = 'user';
                     
-                    // Cleanup Session
-                    unset($_SESSION['math_num1']);
-                    unset($_SESSION['math_num2']);
-
-                    redirect(SITE_URL . '/index.php');
+                    // Clear Temp Data
+                    unset($_SESSION['new_google_user_data']);
+                    
+                    redirect('user/index.php?welcome=1');
                     exit;
-
                 } else {
-                    $error = 'Failed to create account. Please try again.';
+                    $error = "Registration failed. Please try again.";
                 }
+            } catch (Exception $e) {
+                $error = "System Error: " . $e->getMessage();
             }
-        } catch (PDOException $e) {
-            $error = 'Database Error: ' . $e->getMessage();
+        }
+    }
+    // CASE B: STANDARD REGISTRATION
+    else {
+        $name = sanitize($_POST['name']);
+        $email = sanitize($_POST['email']);
+        $phone = sanitize($_POST['phone']); 
+        $password = $_POST['password'];
+        $password_confirm = $_POST['password_confirm'];
+        $csrf_token = $_POST['csrf_token'] ?? '';
+        $user_math_ans = isset($_POST['math_ans']) ? (int)$_POST['math_ans'] : 0;
+
+        // Security & Validation
+        if ($user_math_ans !== $math_solution) {
+            $error = '⚠️ Incorrect Math Answer. Please try again.';
+            $_SESSION['math_num1'] = rand(1, 9); 
+            $_SESSION['math_num2'] = rand(1, 9);
+        }
+        elseif (!verifyCsrfToken($csrf_token)) {
+            $error = 'Security check failed. Please refresh.';
+        }
+        elseif (preg_match('/(http|www|\.com|💳|\*|\$|RUB|BAM|link)/i', $name)) {
+            $error = '⚠️ Spam detected in name. Please use your real name.';
+        }
+        elseif (empty($name) || empty($email) || empty($phone) || empty($password) || empty($password_confirm)) {
+            $error = 'Please fill in all fields, including WhatsApp number.';
+        } 
+        elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Invalid email format.';
+        } 
+        elseif ($password !== $password_confirm) {
+            $error = 'Passwords do not match.';
+        } 
+        elseif (strlen($password) < 6) {
+            $error = 'Password must be at least 6 characters long.';
+        } 
+        else {
+            try {
+                // Check if Email Exists
+                $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                if ($stmt->fetch()) {
+                    $error = 'Email is already registered. Please Login.';
+                } else {
+                    // Create Account
+                    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                    $verification_token = bin2hex(random_bytes(32)); 
+                    
+                    $stmt = $db->prepare("INSERT INTO users (name, email, phone, password_hash, is_admin, created_at, is_verified, verification_token) VALUES (?, ?, ?, ?, 0, NOW(), 1, ?)");
+                    
+                    if ($stmt->execute([$name, $email, $phone, $password_hash, $verification_token])) {
+                        
+                        $new_user_id = $db->lastInsertId();
+                        $_SESSION['user_id'] = $new_user_id;
+                        $_SESSION['email'] = $email;
+                        $_SESSION['name'] = $name;
+                        $_SESSION['is_admin'] = 0; 
+                        
+                        unset($_SESSION['math_num1']);
+                        unset($_SESSION['math_num2']);
+
+                        redirect('user/index.php');
+                        exit;
+
+                    } else {
+                        $error = 'Failed to create account. Please try again.';
+                    }
+                }
+            } catch (PDOException $e) {
+                $error = 'Database Error: ' . $e->getMessage();
+            }
         }
     }
 }
@@ -112,233 +168,386 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Register - <?php echo $GLOBALS['settings']['site_name'] ?? 'LikexFollow'; ?></title>
+    <title>Sign Up - <?php echo $GLOBALS['settings']['site_name'] ?? 'Account'; ?></title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --primary-light: #eef2ff;
-            --text-dark: #1e293b;
-            --text-light: #64748b;
-            --border: #e2e8f0;
-            --bg: #f8fafc;
-            --radius-box: 24px;
-            --radius-input: 12px;
+            --primary: #4F46E5; /* Purple */
+            --primary-dark: #4338ca;
+            --whatsapp-green: #25D366;
+            --dark-text: #1e293b;
+            --gray-text: #64748b;
+            --border-color: #cbd5e1;
+            --page-bg: #f8fafc;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Manrope', sans-serif; }
 
         body {
-            background-color: var(--bg);
+            background-color: var(--page-bg);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 15px; /* Reduced padding */
         }
 
-        /* --- ✨ SMOOTH REGISTER CARD --- */
-        .auth-card {
+        /* --- COMPACT CARD DESIGN --- */
+        .register-card {
             background: white;
             width: 100%;
-            max-width: 420px; /* Slightly wider than login for more fields */
-            padding: 30px;
-            border-radius: var(--radius-box);
-            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0,0,0,0.03);
-            position: relative;
+            max-width: 400px; /* Narrower */
+            padding: 25px 20px; /* Reduced padding */
+            border-radius: 16px;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid white;
         }
 
-        /* Header Area */
-        .header { text-align: center; margin-bottom: 25px; }
-        .logo { height: 40px; margin-bottom: 10px; object-fit: contain; }
-        .brand-title { font-size: 1.4rem; font-weight: 800; color: var(--text-dark); margin: 0; letter-spacing: -0.5px; }
-        .welcome-text { font-size: 0.9rem; color: var(--text-light); margin-top: 5px; font-weight: 500; }
+        /* Header */
+        .card-header { text-align: center; margin-bottom: 20px; }
+        .logo-img { height: 40px; margin-bottom: 8px; object-fit: contain; }
+        .title { font-size: 1.4rem; font-weight: 800; color: var(--dark-text); letter-spacing: -0.5px; }
+        .subtitle { font-size: 0.85rem; color: var(--gray-text); font-weight: 500; }
 
-        /* Form Groups */
-        .form-group { position: relative; margin-bottom: 14px; }
+        /* Inputs - COMPACT & HIGH CONTRAST */
+        .input-group { position: relative; margin-bottom: 12px; /* Reduced gap */ }
         
-        .input-icon {
-            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
-            color: #94a3b8; font-size: 1rem; transition: color 0.2s;
+        /* CIRCLE ICONS */
+        .field-icon {
+            position: absolute; 
+            left: 8px; 
+            top: 50%; 
+            transform: translateY(-50%);
+            width: 30px; height: 30px;
+            background: var(--primary); /* Purple Circle */
+            color: white; /* White Icon */
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; 
+            z-index: 2;
+            pointer-events: none;
+            box-shadow: 0 2px 5px rgba(79, 70, 229, 0.3);
         }
 
-        .form-input {
+        /* Special Exception for WhatsApp */
+        .wa-field .field-icon { background: var(--whatsapp-green); box-shadow: 0 2px 5px rgba(37, 211, 102, 0.3); }
+
+        .clean-input {
             width: 100%;
-            padding: 12px 12px 12px 45px; 
-            border: 2px solid var(--border);
-            border-radius: var(--radius-input);
-            font-size: 0.95rem; font-weight: 500; color: var(--text-dark);
-            outline: none; background: #fff;
-            transition: all 0.2s ease-in-out;
+            height: 46px; /* Reduced height */
+            padding: 0 15px 0 48px; /* Padding left for icon space */
+            background: #fff;
+            border: 2px solid #e2e8f0; 
+            border-radius: 10px;
+            font-size: 0.95rem; font-weight: 600; color: var(--dark-text);
+            transition: all 0.2s ease;
+            outline: none;
         }
 
-        .form-input:focus {
+        .clean-input::placeholder { color: #94a3b8; font-weight: 500; opacity: 1; }
+
+        .clean-input:focus {
             border-color: var(--primary);
-            background: #fff;
             box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
         }
-        .form-input:focus + .input-icon { color: var(--primary); }
-
-        /* --- 🛡️ CAPTCHA BOX --- */
+        
+        /* Math Captcha - Compact & Animated */
         .captcha-row {
-            display: flex; gap: 10px; align-items: center; margin-bottom: 20px;
+            display: flex; gap: 8px; margin-bottom: 15px; 
+            width: 100%;
         }
-        .math-display {
-            background: #1e293b; color: #4ade80;
-            padding: 10px 15px; border-radius: 12px;
-            font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
-            letter-spacing: 2px;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-            min-width: 80px; text-align: center;
+        .math-box {
+            background: #f1f5f9; color: var(--dark-text);
+            padding: 0 15px; border-radius: 10px;
+            font-weight: 800; font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid #e2e8f0;
+            white-space: nowrap; height: 46px;
         }
+        
+        /* Input Wrapper for validation icon */
+        .math-input-wrap { position: relative; flex-grow: 1; }
+        
         .captcha-input {
-            flex: 1; padding: 10px; text-align: center; font-weight: 700;
-            border: 2px solid var(--border); border-radius: 12px;
-            outline: none; color: var(--primary);
+            width: 100%; text-align: center;
+            border: 2px solid #e2e8f0; border-radius: 10px;
+            height: 46px; font-weight: 700; font-size: 1rem;
+            outline: none;
+            padding-right: 30px; /* Space for validation icon */
+            transition: all 0.3s ease;
         }
         .captcha-input:focus { border-color: var(--primary); }
 
-        /* Buttons */
-        .btn-primary {
+        /* VALIDATION STYLES */
+        .validation-icon {
+            position: absolute; right: 12px; top: 50%;
+            transform: translateY(-50%) scale(0);
+            font-size: 1.1rem;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+
+        /* Main Button */
+        .btn-main {
             width: 100%;
             background: var(--primary);
             color: white;
-            padding: 14px;
+            padding: 14px; /* Reduced */
             border: none;
-            border-radius: var(--radius-input);
-            font-weight: 700; font-size: 1rem;
+            border-radius: 10px;
+            font-size: 1rem; font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.4);
+            transition: transform 0.2s;
         }
-        .btn-primary:hover { 
-            background: var(--primary-hover); 
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
-        }
+        .btn-main:active { transform: scale(0.98); }
 
+        /* Divider */
         .divider {
-            display: flex; align-items: center; color: #cbd5e1; 
-            font-size: 0.75rem; margin: 20px 0; font-weight: 600; text-transform: uppercase;
+            display: flex; align-items: center; margin: 15px 0; 
+            color: #94a3b8; font-size: 0.75rem; font-weight: 700;
         }
         .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
-        .divider span { padding: 0 15px; color: #94a3b8; }
+        .divider span { padding: 0 10px; }
 
+        /* Google Button */
         .btn-google {
             display: flex; align-items: center; justify-content: center; gap: 8px;
-            width: 100%; padding: 10px;
-            background: #fff; border: 1px solid var(--border);
-            border-radius: var(--radius-input);
-            color: var(--text-dark); font-size: 0.9rem; font-weight: 600;
+            width: 100%; padding: 12px;
+            background: white; border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            color: var(--dark-text); font-weight: 700; font-size: 0.9rem;
             text-decoration: none; transition: 0.2s;
         }
         .btn-google:hover { background: #f8fafc; border-color: #cbd5e1; }
 
-        .card-footer {
-            text-align: center; margin-top: 20px;
-            font-size: 0.9rem; color: var(--text-light); font-weight: 500;
-        }
-        .card-footer a { color: var(--primary); font-weight: 700; text-decoration: none; }
-        .card-footer a:hover { text-decoration: underline; }
+        /* Footer */
+        .footer { margin-top: 20px; text-align: center; font-size: 0.85rem; color: var(--gray-text); font-weight: 500; }
+        .footer a { color: var(--primary); text-decoration: none; font-weight: 700; }
 
-        /* Error & Success Boxes */
-        .status-box {
-            padding: 10px; border-radius: 10px; font-size: 0.85rem; text-align: center;
-            margin-bottom: 20px; font-weight: 600;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
-        .success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        /* Alerts */
+        .alert { padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
 
-        /* --- 💡 SMART TOOLTIP CSS --- */
-        [data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 110%; left: 50%; transform: translateX(-50%);
-            background: #1e293b; color: #fff;
-            padding: 6px 12px; border-radius: 8px;
-            font-size: 0.75rem; font-weight: 600;
-            white-space: nowrap; opacity: 0; animation: tooltipFade 0.3s forwards;
-            pointer-events: none; z-index: 10;
+        /* POPUP */
+        .popup-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
         }
-        @keyframes tooltipFade { to { opacity: 1; transform: translateX(-50%) translateY(-5px); } }
+        .popup-content {
+            background: white; width: 90%; max-width: 350px; padding: 25px;
+            border-radius: 20px; text-align: center;
+        }
 
     </style>
 </head>
 <body>
 
-    <div class="auth-card">
+    <div class="register-card">
         
-        <div class="header">
+        <div class="card-header">
             <?php if (!empty($GLOBALS['settings']['site_logo'])): ?>
-                <img src="assets/img/<?php echo sanitize($GLOBALS['settings']['site_logo']); ?>" alt="Logo" class="logo">
+                <img src="assets/img/<?php echo sanitize($GLOBALS['settings']['site_logo']); ?>" alt="Logo" class="logo-img">
             <?php else: ?>
-                <h2 style="color:var(--primary);margin:0;">LikexFollow</h2>
+                <h1 class="title"><?php echo $GLOBALS['settings']['site_name'] ?? 'LikexFollow'; ?></h1>
             <?php endif; ?>
-            <p class="welcome-text">Create your free account</p>
+            <p class="subtitle">Join our community in seconds</p>
         </div>
 
         <?php if ($error): ?>
-            <div class="status-box error"><i class="fa-solid fa-circle-exclamation"></i> <?= $error ?></div>
+            <div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> <?= $error ?></div>
         <?php elseif ($success): ?>
-            <div class="status-box success"><i class="fa-solid fa-check-circle"></i> <?= $success ?></div>
+            <div class="alert alert-success"><i class="fa-solid fa-check"></i> <?= $success ?></div>
         <?php endif; ?>
 
-        <form action="register.php" method="POST">
+        <form action="register.php" method="POST" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
 
-            <div class="form-group" data-tooltip="Enter your real name">
-                <i class="fa-regular fa-user input-icon"></i>
-                <input type="text" name="name" class="form-input" placeholder="Full Name" value="<?php echo sanitize($name); ?>" required>
+            <div class="input-group">
+                <div class="field-icon"><i class="fa-solid fa-user"></i></div>
+                <input type="text" name="name" id="inp-name" class="clean-input" placeholder="Enter your name..." value="<?php echo sanitize($name); ?>" required>
             </div>
 
-            <div class="form-group" data-tooltip="We will send updates here">
-                <i class="fa-regular fa-envelope input-icon"></i>
-                <input type="email" name="email" class="form-input" placeholder="Email Address" value="<?php echo sanitize($email); ?>" required>
+            <div class="input-group">
+                <div class="field-icon"><i class="fa-solid fa-envelope"></i></div>
+                <input type="email" name="email" id="inp-email" class="clean-input" placeholder="Enter your email..." value="<?php echo sanitize($email); ?>" required>
             </div>
 
-            <div class="form-group" data-tooltip="For Order Updates (No Spam)">
-                <i class="fa-brands fa-whatsapp input-icon" style="color:#25D366;font-weight:bold;"></i>
-                <input type="text" name="phone" class="form-input" placeholder="WhatsApp Number (e.g. +92...)" value="<?php echo sanitize($phone); ?>" required>
+            <div class="input-group wa-field">
+                <div class="field-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                <input type="text" name="phone" id="inp-phone" class="clean-input" placeholder="Enter WhatsApp number..." value="<?php echo sanitize($phone); ?>" required>
             </div>
 
-            <div class="form-group">
-                <i class="fa-solid fa-lock input-icon"></i>
-                <input type="password" name="password" class="form-input" placeholder="Password (Min 6 chars)" required>
+            <div class="input-group">
+                <div class="field-icon"><i class="fa-solid fa-lock"></i></div>
+                <input type="password" name="password" id="inp-pass" class="clean-input" placeholder="Create password..." required>
             </div>
 
-            <div class="form-group">
-                <i class="fa-solid fa-shield-halved input-icon"></i>
-                <input type="password" name="password_confirm" class="form-input" placeholder="Confirm Password" required>
+            <div class="input-group">
+                <div class="field-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <input type="password" name="password_confirm" class="clean-input" placeholder="Confirm password..." required>
             </div>
 
-            <div class="captcha-row" data-tooltip="Prove you are human">
-                <div class="math-display"><?php echo $num1; ?> + <?php echo $num2; ?></div>
-                <input type="number" name="math_ans" class="captcha-input" placeholder="=" required>
+            <div class="captcha-row">
+                <div class="math-box"><?php echo $num1; ?> + <?php echo $num2; ?> = ?</div>
+                <div class="math-input-wrap">
+                    <input type="number" name="math_ans" id="inp-math" class="captcha-input" placeholder="Answer" required>
+                    <i id="math-val-icon" class="fa-solid validation-icon"></i>
+                </div>
             </div>
 
-            <button type="submit" class="btn-primary">
-                CREATE ACCOUNT <i class="fa-solid fa-arrow-right"></i>
+            <button type="submit" class="btn-main">
+                Create Account
             </button>
         </form>
 
         <?php if (function_exists('getGoogleLoginUrl') && $gUrl = getGoogleLoginUrl()): ?>
-            <div class="divider"><span>OR JOIN WITH</span></div>
+            <div class="divider"><span>OR CONTINUE WITH</span></div>
             <a href="<?= $gUrl ?>" class="btn-google">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="16"> Google
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="18" alt="G"> 
+                Google
             </a>
         <?php endif; ?>
 
-        <div class="card-footer">
-            Already have an account? <a href="login.php">Log In</a>
+        <div class="footer">
+            Have an account? <a href="login.php">Log In</a>
         </div>
     </div>
+
+    <?php if ($show_whatsapp_popup): ?>
+    <div class="popup-overlay">
+        <div class="popup-content">
+            <div style="width:50px; height:50px; background:#dcfce7; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 15px;">
+                <i class="fa-brands fa-whatsapp" style="font-size: 28px; color: #25D366;"></i>
+            </div>
+            <h2 style="margin-bottom:8px; font-size:1.3rem; color:#1e293b;">Final Step</h2>
+            <p style="color:#64748b; margin-bottom:15px; font-size:0.9rem;">Confirm WhatsApp for order updates.</p>
+
+            <form action="register.php" method="POST">
+                <input type="hidden" name="google_final_step" value="1">
+                <div class="input-group wa-field" style="text-align:left;">
+                    <div class="field-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                    <input type="text" name="phone" class="clean-input" placeholder="+1 234 567 890" style="background:#f0fdf4; border-color:#25D366;" required autofocus>
+                </div>
+                <button type="submit" class="btn-main" style="background:#25D366; box-shadow:none; margin-top:5px;">
+                    Confirm & Finish
+                </button>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // --- 1. SMART TYPING ANIMATION ---
+            const animConfig = [
+                { id: 'inp-name',  text: 'Enter your name...' },
+                { id: 'inp-email', text: 'Enter your email...' },
+                { id: 'inp-phone', text: 'Enter WhatsApp number...' },
+                { id: 'inp-pass',  text: 'Create password...' }
+            ];
+
+            let currentFieldIndex = 0;
+            let charIndex = 0;
+            let isDeleting = false;
+            let timer = null;
+            let activeElementId = null;
+
+            document.addEventListener('focus', (e) => { activeElementId = e.target.id; }, true);
+            document.addEventListener('blur', () => { activeElementId = null; }, true);
+
+            document.addEventListener('input', (e) => {
+                if(animConfig[currentFieldIndex] && e.target.id === animConfig[currentFieldIndex].id) {
+                    clearTimeout(timer);
+                    e.target.setAttribute('placeholder', '');
+                    moveToNextField();
+                }
+            }, true);
+
+            function moveToNextField() {
+                let found = -1;
+                for(let i = 0; i < animConfig.length; i++) {
+                    const el = document.getElementById(animConfig[i].id);
+                    if(el && el.value.length === 0 && el.id !== document.activeElement.id) {
+                        found = i;
+                        break;
+                    }
+                }
+                if(found !== -1) {
+                    currentFieldIndex = found;
+                    charIndex = 0;
+                    isDeleting = false;
+                    typeWriter();
+                } else {
+                    clearTimeout(timer);
+                }
+            }
+
+            function typeWriter() {
+                const currentObj = animConfig[currentFieldIndex];
+                if(!currentObj) return;
+
+                const inputEl = document.getElementById(currentObj.id);
+                if(!inputEl) return;
+                if(document.activeElement === inputEl) return;
+                if(inputEl.value.length > 0) { moveToNextField(); return; }
+
+                const fullText = currentObj.text;
+                let currentText = fullText.substring(0, charIndex);
+                inputEl.setAttribute('placeholder', currentText + '|');
+
+                let typeSpeed = 80;
+                if (isDeleting) { charIndex--; typeSpeed = 40; } else { charIndex++; }
+
+                if (!isDeleting && charIndex === fullText.length + 1) {
+                    isDeleting = true; typeSpeed = 1200;
+                } else if (isDeleting && charIndex === 0) {
+                    isDeleting = false; typeSpeed = 300;
+                }
+                timer = setTimeout(typeWriter, typeSpeed);
+            }
+            moveToNextField();
+
+
+            // --- 2. MATH VALIDATION LOGIC ---
+            const mathInp = document.getElementById('inp-math');
+            const mathIcon = document.getElementById('math-val-icon');
+            const solution = <?php echo $math_solution; ?>; // PHP Value to JS
+
+            mathInp.addEventListener('input', function() {
+                const val = parseInt(this.value);
+                
+                if (val === solution) {
+                    // CORRECT: Green Tick Animation
+                    this.style.borderColor = '#25D366';
+                    this.style.backgroundColor = '#f0fdf4';
+                    mathIcon.className = 'fa-solid fa-circle-check validation-icon';
+                    mathIcon.style.color = '#25D366';
+                    mathIcon.style.transform = 'translateY(-50%) scale(1)';
+                } 
+                else if (this.value.length > 0) {
+                    // WRONG: Red Alert
+                    this.style.borderColor = '#ef4444';
+                    this.style.backgroundColor = '#fef2f2';
+                    mathIcon.className = 'fa-solid fa-circle-xmark validation-icon';
+                    mathIcon.style.color = '#ef4444';
+                    mathIcon.style.transform = 'translateY(-50%) scale(1)';
+                } 
+                else {
+                    // EMPTY: Reset
+                    this.style.borderColor = '#e2e8f0';
+                    this.style.backgroundColor = '#fff';
+                    mathIcon.style.transform = 'translateY(-50%) scale(0)';
+                }
+            });
+
+        });
+    </script>
 
 </body>
 </html>
