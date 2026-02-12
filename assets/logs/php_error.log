@@ -178,3 +178,8 @@
 [16-Jan-2026 17:38:41 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Retrying PLAIN authentication after [UNAVAILABLE] Temporary authentication failure. [de-fra-mailstorage131:2026-01-1 (errflg=1) in Unknown on line 0
 [16-Jan-2026 17:38:41 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Retrying PLAIN authentication after [UNAVAILABLE] Temporary authentication failure. [de-fra-mailstorage131:2026-01-1 (errflg=1) in Unknown on line 0
 [16-Jan-2026 17:38:41 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Can not authenticate to IMAP server: [UNAVAILABLE] Temporary authentication failure. [de-fra-mailstorage131:2026-01-1 (errflg=2) in Unknown on line 0
+[08-Feb-2026 01:48:03 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Can not authenticate to IMAP server: [CLOSED] IMAP connection broken (authenticate) (errflg=2) in Unknown on line 0
+[08-Feb-2026 21:21:04 Asia/Karachi] PHP Notice:  PHP Request Shutdown: [CLOSED] IMAP connection broken (server response) (errflg=2) in Unknown on line 0
+[09-Feb-2026 01:27:02 Asia/Karachi] PHP Notice:  PHP Request Shutdown: [CLOSED] IMAP connection broken (server response) (errflg=2) in Unknown on line 0
+[09-Feb-2026 10:27:04 Asia/Karachi] PHP Notice:  PHP Request Shutdown: [CLOSED] IMAP connection broken (server response) (errflg=2) in Unknown on line 0
+[09-Feb-2026 14:47:05 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Can not authenticate to IMAP server: [CLOSED] IMAP connection broken (authenticate) (errflg=2) in Unknown on line 0
