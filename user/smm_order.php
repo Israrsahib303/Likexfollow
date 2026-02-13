@@ -20,47 +20,81 @@ $site_name = $GLOBALS['settings']['site_name'] ?? 'SubHub';
 
 // --- DATA FETCHING ---
 try {
-    // Fetch all active services
+    // 1. Fetch Dynamic Sub-Categories
+    $dynamic_sub_cats = [];
+    try {
+        $stmt_sub = $db->query("SELECT * FROM smm_sub_categories WHERE is_active=1 ORDER BY sort_order ASC");
+        $sub_rows = $stmt_sub->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($sub_rows as $row) {
+            $mainApp = trim($row['main_app']);
+            $dynamic_sub_cats[$mainApp][] = [
+                'name' => $row['sub_cat_name'],
+                'icon' => $row['sub_cat_icon'], 
+                'keys' => strtolower($row['keywords'])
+            ];
+        }
+    } catch (PDOException $e) {
+        $dynamic_sub_cats = [];
+    }
+
+    // 2. Fetch Services
     $stmt = $db->query("SELECT s.*, p.api_url as provider_api FROM smm_services s LEFT JOIN smm_providers p ON s.provider_id = p.id WHERE s.is_active = 1 ORDER BY s.category ASC, s.service_rate ASC");
     $all_services = $stmt->fetchAll();
     
     $grouped_apps = [];
     $services_json = [];
     
-    // Define Apps, Filters & Icons
-    // Note: Icons here are for the Main App Grid (Instagram.png etc)
-    $known_apps = [
-        'Instagram' => ['filters' => ['Followers','Likes','Views','Comments','Story','Reels'], 'icon' => 'Instagram.png'], 
-        'TikTok' => ['filters' => ['Followers','Likes','Views','Comments','Saves'], 'icon' => 'TikTok.png'],
-        'Youtube' => ['filters' => ['Subscribers','Views','Likes','Watchtime','Comments','Shorts'], 'icon' => 'Youtube.png'],
-        'Facebook' => ['filters' => ['Followers','Page Likes','Views','Comments','Reels'], 'icon' => 'Facebook.png'],
-        'Twitter' => ['filters' => ['Followers','Retweets','Likes','Views'], 'icon' => 'Twitter.png'],
-        'Spotify' => ['filters' => ['Plays','Followers','Saves'], 'icon' => 'Spotify.png'],
-        'Telegram' => ['filters' => ['Members','Views','Reactions'], 'icon' => 'Telegram.png'],
-        'Snapchat' => ['filters' => ['Followers','Story Views','Score'], 'icon' => 'Snapchat.png'],
-        'Linkedin' => ['filters' => ['Followers','Connections','Likes'], 'icon' => 'default.png'],
-        'Website' => ['filters' => ['Traffic'], 'icon' => 'website.png']
+    $main_app_icons = [
+        'Instagram' => 'Instagram.png',
+        'TikTok' => 'TikTok.png',
+        'Youtube' => 'Youtube.png',
+        'Facebook' => 'Facebook.png',
+        'Twitter' => 'Twitter.png',
+        'Spotify' => 'Spotify.png',
+        'Telegram' => 'Telegram.png',
+        'Snapchat' => 'Snapchat.png',
+        'Linkedin' => 'default.png',
+        'Website' => 'website.png'
     ];
 
     foreach ($all_services as $s) {
         $full_cat = trim($s['category']);
         $app_name = 'Others'; 
-        $app_filters = ['Followers','Likes','Views']; 
-
-        // Auto-detect App Name
-        foreach ($known_apps as $kApp => $data) {
-            if (stripos($full_cat, $kApp) !== false) {
-                $app_name = $kApp;
-                $app_filters = $data['filters'];
-                break;
+        
+        // Auto-detect App
+        if (!empty($dynamic_sub_cats)) {
+            foreach ($dynamic_sub_cats as $kApp => $filters) {
+                if (stripos($full_cat, $kApp) !== false) {
+                    $app_name = $kApp;
+                    break;
+                }
+            }
+        } 
+        
+        if ($app_name === 'Others') {
+            foreach ($main_app_icons as $kApp => $icon) {
+                if (stripos($full_cat, $kApp) !== false) {
+                    $app_name = $kApp;
+                    break;
+                }
             }
         }
         
-        // Group services by App
         $grouped_apps[$app_name]['services'][] = $s; 
-        $grouped_apps[$app_name]['filters'] = $app_filters;
         
-        // --- DATA PREP FOR MODAL ---
+        // Assign Filters
+        if (isset($dynamic_sub_cats[$app_name])) {
+            $grouped_apps[$app_name]['filters'] = $dynamic_sub_cats[$app_name];
+        } else {
+            $grouped_apps[$app_name]['filters'] = [
+                ['name'=>'Followers', 'icon'=>'default.png', 'keys'=>'followers, sub'],
+                ['name'=>'Likes', 'icon'=>'default.png', 'keys'=>'likes, heart'],
+                ['name'=>'Views', 'icon'=>'default.png', 'keys'=>'views, play']
+            ];
+        }
+        
+        // Data for JS
         $is_comment = (stripos($s['name'], 'Comment') !== false || stripos($s['category'], 'Comment') !== false);
         $has_drip = (isset($s['dripfeed']) && $s['dripfeed'] == 1) ? 1 : 0;
         
@@ -70,6 +104,7 @@ try {
             'min'    => (int)$s['min'],
             'max'    => (int)$s['max'],
             'avg'    => formatSmmAvgTime($s['avg_time']),
+            'avg_raw' => (int)$s['avg_time'], // Raw minutes for calculations
             'refill' => (bool)$s['has_refill'],
             'cancel' => (bool)$s['has_cancel'],
             'drip'   => $has_drip,
@@ -93,35 +128,34 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
 
 <script>
-    // Passing Data to JS
     window.currConfig = { code: "<?=$curr_code?>", rate: <?=$curr_rate?>, sym: "<?=$curr_symbol?>" };
     window.svcData = <?= json_encode($services_json) ?>;
     window.appsData = <?= json_encode($grouped_apps) ?>;
+    window.mainIcons = <?= json_encode($main_app_icons) ?>;
 </script>
 
 <style>
-/* --- 1. ANIMATED PURPLE BACKGROUND & VARIABLES --- */
+/* --- VARIABLES --- */
 :root {
-    --primary: #8b5cf6; /* Violet */
+    --primary: #8b5cf6; 
     --primary-dark: #6d28d9;
     --primary-glow: rgba(139, 92, 246, 0.4);
     --glass-bg: rgba(255, 255, 255, 0.9);
-    --glass-border: rgba(255, 255, 255, 0.6);
     --text-main: #1e293b;
     --text-sub: #64748b;
     --font: 'Plus Jakarta Sans', sans-serif;
-    --radius: 16px; 
 }
 
 body {
     margin: 0; padding: 0;
     font-family: var(--font);
-    background-color: white;
+    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
     background-size: 400% 400%;
-    animation: gradientBG 12s ease infinite;
+    animation: gradientBG 15s ease infinite;
     min-height: 100vh;
     color: var(--text-main);
     overflow-x: hidden;
+    position: relative;
 }
 
 @keyframes gradientBG {
@@ -130,22 +164,37 @@ body {
     100% { background-position: 0% 50%; }
 }
 
-/* --- 2. LAYOUT --- */
-.app-wrapper { max-width: 800px; margin: 20px auto; padding: 20px; }
+/* --- FLOATING BACKGROUND ICONS ANIMATION --- */
+.bg-animation {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1; overflow: hidden; pointer-events: none;
+}
+.bg-icon {
+    position: absolute; bottom: -50px;
+    font-size: 2rem; color: rgba(255, 255, 255, 0.15);
+    animation: floatUp 10s linear infinite;
+}
+@keyframes floatUp {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.4; }
+    90% { opacity: 0.4; }
+    100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+}
 
-/* Standard Glass Card */
+/* --- LAYOUT --- */
+.app-wrapper { max-width: 800px; margin: 20px auto; padding: 20px; position: relative; z-index: 1; }
+
 .glass-panel {
     background: var(--glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
+    border: 1px solid rgba(255,255,255,0.6);
     border-radius: 24px;
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
     padding: 20px;
     margin-bottom: 20px;
 }
 
-/* --- 3. SEARCH HERO --- */
 .search-box { position: relative; margin-bottom: 25px; }
 .search-box input {
     width: 100%; padding: 18px 25px 18px 55px; border-radius: 20px; border: none;
@@ -155,13 +204,11 @@ body {
 .search-box input:focus { transform: scale(1.02); box-shadow: 0 15px 35px rgba(0,0,0,0.2); outline: none; }
 .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; color: var(--primary); }
 
-/* --- 4. VIEWS & ANIMATIONS --- */
 .view-section { display: none; animation: fadeInUp 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) forwards; }
 .view-section.active { display: block; }
 
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-/* --- 5. GRID SYSTEM (PLATFORMS) --- */
 .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
 .app-card {
     background: rgba(255,255,255,0.85); border-radius: 18px; padding: 15px 5px;
@@ -172,7 +219,6 @@ body {
 .app-card img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
 .app-name { font-weight: 700; font-size: 0.85rem; display: block; color: black; }
 
-/* --- 7. FILTER BUTTONS --- */
 .filter-wrapper { 
     overflow-x: auto; white-space: normal; padding-bottom: 10px; margin-bottom: 15px; 
     scrollbar-width: none; -ms-overflow-style: none;
@@ -180,63 +226,53 @@ body {
 }
 .filter-wrapper::-webkit-scrollbar { display: none; }
 
-.filter-btn {
-    height: 50px; 
-    width: auto;
-    cursor: pointer;
-    transition: 0.2s;
-    border-radius: 8px;
-    border: 2px solid transparent;
-    opacity: 0.85;
-}
+.filter-btn { height: 50px; width: auto; cursor: pointer; transition: 0.2s; border-radius: 8px; opacity: 0.9; }
 .filter-btn:hover { transform: translateY(-2px); opacity: 1; }
-.filter-btn.active { border-color: var(--primary); opacity: 1; transform: scale(1.05); }
+.filter-btn.active { transform: scale(1.05); opacity: 1; }
 
-/* --- NEW STYLE: IOS VERTICAL IMAGE LIST (NO BOX, NO TEXT) --- */
-.ios-vertical-list {
+/* --- BIG WHITE BOX SUB-CATS --- */
+.big-white-box {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 10px 0; 
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
     display: flex;
-    flex-direction: column; /* Vertical Stack */
-    align-items: center;    /* Center images */
-    gap: 25px;              /* Space between images */
-    padding: 20px 10px;
+    flex-direction: column;
+    align-items: center;
+    gap: 0; 
+    border: 1px solid rgba(255,255,255,0.8);
 }
 
 .ios-img-btn {
     width: 100%;
-    max-width: 200px;      /* Large but constrained width */
+    max-width: 180px;      
     height: auto;
     object-fit: contain;
     cursor: pointer;
-    
-    /* Transparent / No Box */
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    
-    /* Animation Initial State */
-    opacity: 0;
-    transform: translateY(30px) scale(0.9);
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1)); /* Soft shadow on the image itself */
-    transition: filter 0.3s;
+    margin: 0; 
+    padding: 2px 0;
+    transition: transform 0.2s ease, filter 0.2s;
+    opacity: 0; 
 }
 
-/* The Animation Keyframe */
-@keyframes iosSlideUp {
-    0% { opacity: 0; transform: translateY(40px) scale(0.85); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.ios-img-btn:active {
-    transform: scale(0.95); /* Touch feedback */
-    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.1));
+@keyframes listSlide {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 .ios-img-btn:hover {
-    filter: drop-shadow(0 10px 25px rgba(139, 92, 246, 0.4)); /* Glow on hover */
-    transform: scale(1.02);
+    transform: scale(1.03);
+    filter: brightness(1.05);
+    z-index: 2;
 }
 
-/* --- 8. SERVICE LIST --- */
+.ios-img-btn:active { transform: scale(0.98); }
+
+/* --- SERVICE LIST --- */
 .svc-item {
     background: white; border-radius: 18px; padding: 18px; margin-bottom: 12px;
     transition: 0.3s; border-left: 4px solid transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.03); cursor: pointer; border-color: #0B9FF5; 
@@ -254,69 +290,145 @@ body {
 .tag.green { background: #dcfce7; color: #166534; }
 .tag.red { background: #fee2e2; color: #991b1b; }
 .tag.blue { background: #dbeafe; color: #1e40af; }
-.tag.gold { background: #fef9c3; color: #854d0e; }
 
-/* --- 9. NAV HEADER --- */
+/* --- NAV HEADER & PURPLE BACK BUTTON --- */
 .nav-header {
     display: flex; align-items: center; gap: 15px; margin-bottom: 20px;
-    background: white; padding: 10px 15px; border-radius: 50px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05); width: fit-content;
+    width: 100%;
 }
 .back-btn {
-    width: 35px; height: 35px; border-radius: 50%; border: none;
-    background: #f3f4f6; color: var(--text-main); cursor: pointer;
-    transition: 0.2s; font-size: 1rem;
+    width: 42px; height: 42px; border-radius: 50%; border: none;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9); 
+    color: white; 
+    cursor: pointer;
+    transition: 0.3s; font-size: 1.1rem;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    display: flex; align-items: center; justify-content: center;
 }
-.back-btn:hover { background: var(--primary); color: white; }
+.back-btn:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6); }
 
 /* =========================================
-   --- 10. MODAL & ORDER STYLES ---
+   --- COMPACT ORDER MODAL WITH LIVE ICONS ---
    ========================================= */
 .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 99999;
-    justify-content: center; align-items: center; padding: 20px;
+    background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); z-index: 99999;
+    justify-content: center; align-items: center; padding: 15px;
 }
 .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease-out; }
+
 .modal-content {
-    background: #fff; width: 100%; max-width: 500px; border-radius: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; display: flex; flex-direction: column;
-    max-height: 90vh; animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); border: 1px solid #fff;
+    background: #fff; width: 100%; max-width: 450px; /* Reduced width */
+    border-radius: 20px;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.2); 
+    overflow: hidden; display: flex; flex-direction: column;
+    max-height: 90vh; animation: zoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.modal-header { padding: 20px 25px; background: #fff; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-.modal-close { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; color: #64748b; transition: 0.2s; }
-.modal-close:hover { background: #fee2e2; color: #ef4444; transform: rotate(90deg); }
-.modal-body { padding: 25px; overflow-y: auto; }
 
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-.stat-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; text-align: center; }
-.stat-box small { display: block; font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
-.stat-box b { font-size: 0.9rem; color: #334155; }
-.desc-box { background: #fff; border: 1px dashed #cbd5e1; border-radius: 12px; font-size: 0.85rem; color: #64748b; margin-bottom: 20px; padding: 15px; max-height: 100px; overflow-y: auto; line-height: 1.6; }
+.modal-header { 
+    padding: 15px 20px; /* Reduced Padding */
+    background: #f8fafc; border-bottom: 1px solid #f1f5f9; 
+    display: flex; justify-content: space-between; align-items: center; 
+}
+.modal-header h3 { font-size: 1.1rem; font-weight: 800; color: #334155; margin: 0; }
 
-.form-group { margin-bottom: 18px; }
-.form-label { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; color: #334155; }
-.input-wrap { position: relative; }
-.form-input { width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 14px; font-size: 1rem; outline: none; transition: 0.2s; background: #fff; color: #0f172a; font-family: var(--font); }
-.form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1); }
-.paste-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: #eff6ff; color: var(--primary); border: none; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-.paste-btn:hover { background: var(--primary); color: #fff; }
+.modal-close { 
+    background: transparent; border: none; width: 30px; height: 30px; 
+    border-radius: 50%; font-size: 1.1rem; cursor: pointer; color: #94a3b8; 
+    display: flex; align-items: center; justify-content: center; transition: 0.2s; 
+}
+.modal-close:hover { background: #fee2e2; color: #ef4444; }
 
-.btn-submit { width: 100%; padding: 16px; background: var(--primary); color: #fff; font-weight: 800; font-size: 1rem; border: none; border-radius: 14px; cursor: pointer; margin-top: 15px; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3); transition: 0.3s; }
-.btn-submit:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4); }
+.modal-body { padding: 20px; /* Tighter padding */ overflow-y: auto; }
 
-/* Drip Feed Styles */
-.drip-toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer; }
-.drip-area { display: none; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
-.drip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* COMPACT LIVE ETA BOX */
+.eta-box {
+    background: linear-gradient(to right, #ecfdf5, #f0fdf4);
+    border: 1px dashed #86efac;
+    color: #15803d;
+    padding: 10px 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.eta-icon-wrap {
+    width: 32px; height: 32px; background: white; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #16a34a;
+    position: relative;
+}
+.pulse-dot {
+    width: 8px; height: 8px; background: #22c55e; border-radius: 50%;
+    position: absolute; top: 0; right: 0;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
 
-/* AI Button in Modal */
-.btn-ai-gen { border:1px solid var(--primary); color:var(--primary); padding:4px 10px; background: #fff; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-.btn-ai-gen:hover { background: var(--primary); color: #fff; }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+.stat-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; text-align: center; }
+.stat-box small { display: block; font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+.stat-box b { font-size: 0.85rem; color: #334155; }
+
+/* COMPACT INPUT FIELDS WITH ICONS */
+.form-group { margin-bottom: 12px; } /* Reduced margin */
+.form-label { display: block; font-weight: 700; font-size: 0.8rem; margin-bottom: 5px; color: #475569; }
+
+.input-icon-wrap { position: relative; }
+.input-icon-wrap i { 
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%); 
+    color: #94a3b8; font-size: 0.9rem; pointer-events: none; 
+}
+
+.form-input { 
+    width: 100%; padding: 12px 12px 12px 40px; /* Left padding for icon */
+    border: 2px solid #f1f5f9; border-radius: 12px; font-size: 0.9rem; 
+    outline: none; transition: 0.2s; background: #fff; font-family: var(--font); color: #334155; 
+}
+.form-input:focus { border-color: var(--primary); background: #fff; }
+
+.paste-btn { 
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%); 
+    background: #eff6ff; color: var(--primary); border: none; 
+    padding: 6px 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer; 
+}
+
+.desc-box { 
+    background: #fefce8; border: 1px dashed #fde047; border-radius: 10px; 
+    font-size: 0.8rem; color: #854d0e; margin-bottom: 15px; padding: 10px; 
+    max-height: 80px; overflow-y: auto; line-height: 1.5; 
+}
+
+.total-charge-area {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #f8fafc; padding: 12px 15px; border-radius: 12px; margin: 10px 0 15px 0; border: 1px solid #e2e8f0;
+}
+
+.btn-submit { 
+    width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
+    color: #fff; font-weight: 800; font-size: 0.95rem; border: none; border-radius: 12px; 
+    cursor: pointer; box-shadow: 0 5px 15px rgba(139, 92, 246, 0.25); transition: 0.2s; 
+}
+.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35); }
 
 @keyframes zoomIn { from { transform:scale(0.95); opacity:0; } to { transform:scale(1); opacity:1; } }
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 </style>
+
+<div class="bg-animation">
+    <i class="fa-brands fa-instagram bg-icon" style="left: 10%; animation-duration: 8s;"></i>
+    <i class="fa-brands fa-tiktok bg-icon" style="left: 25%; animation-duration: 12s; font-size: 1.5rem;"></i>
+    <i class="fa-brands fa-youtube bg-icon" style="left: 40%; animation-duration: 10s;"></i>
+    <i class="fa-brands fa-facebook bg-icon" style="left: 60%; animation-duration: 14s; font-size: 2.2rem;"></i>
+    <i class="fa-brands fa-spotify bg-icon" style="left: 75%; animation-duration: 9s;"></i>
+    <i class="fa-brands fa-twitter bg-icon" style="left: 90%; animation-duration: 11s;"></i>
+</div>
 
 <div class="app-wrapper">
 
@@ -332,7 +444,10 @@ body {
         <div class="glass-panel">
             <div class="grid-container">
                 <?php foreach($grouped_apps as $appName => $data): 
-                    $icon = (!empty($known_apps[$appName]['icon'])) ? $known_apps[$appName]['icon'] : 'smm.png';
+                    $icon = 'smm.png';
+                    if(isset($main_app_icons[$appName])) {
+                        $icon = $main_app_icons[$appName];
+                    }
                 ?>
                 <div class="app-card" onclick="goToApp('<?= $appName ?>')" data-tilt>
                     <img src="../assets/img/icons/<?= $icon ?>" onerror="this.src='../assets/img/icons/smm.png'">
@@ -346,12 +461,12 @@ body {
     <div id="view-subcats" class="view-section">
         <div class="nav-header">
             <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
-            <h3 style="margin:0; font-size:1.1rem;" id="subcat-title">App Name</h3>
+            <h3 style="margin:0; font-size:1.3rem; color:white; font-weight:800; text-shadow: 0 2px 10px rgba(0,0,0,0.2);" id="subcat-title">App Name</h3>
         </div>
         
-        <h4 style="color:white; margin-bottom:12px; font-weight:700;">Choose Category</h4>
+        <h4 style="color:white; margin-bottom:15px; font-weight:700; text-align:center; text-shadow:0 1px 2px rgba(0,0,0,0.1);">Select Category</h4>
         
-        <div class="ios-vertical-list" id="subcat-image-container">
+        <div class="big-white-box" id="subcat-image-container">
             </div>
     </div>
 
@@ -359,8 +474,8 @@ body {
         <div class="nav-header" style="margin-bottom:15px;">
             <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
             <div>
-                <h3 style="margin:0; font-size:1rem;" id="svc-list-title">Category</h3>
-                <span style="font-size:0.75rem; opacity:0.7">Select a package</span>
+                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;" id="svc-list-title">Category</h3>
+                <span style="font-size:0.8rem; color: rgba(255,255,255,0.9);">Select a package</span>
             </div>
         </div>
 
@@ -386,10 +501,22 @@ body {
 <div class="modal-overlay" id="order-modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 style="margin:0;">New Order</h3>
-            <button class="modal-close" onclick="closeModal()">✕</button>
+            <h3><i class="fa-solid fa-cart-shopping" style="color:var(--primary); margin-right:8px;"></i> New Order</h3>
+            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
+            
+            <div class="eta-box" id="eta-container" style="display:none;">
+                <div class="eta-icon-wrap">
+                    <i class="fa-regular fa-clock"></i>
+                    <div class="pulse-dot"></div>
+                </div>
+                <div>
+                    <span style="font-size:0.7rem; display:block; opacity:0.8; font-weight:700;">ESTIMATED COMPLETION</span>
+                    <span id="eta-text" style="font-size:0.95rem; font-weight:700;">Calculating...</span>
+                </div>
+            </div>
+
             <div id="m-stats" class="stats-grid"></div>
             <div id="m-desc" class="desc-box"></div>
             
@@ -397,76 +524,51 @@ body {
                 <input type="hidden" name="service_id" id="m-id">
                 
                 <div class="form-group">
-                    <label class="form-label">Link</label>
-                    <div class="input-wrap">
+                    <label class="form-label">Link / Username</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-link"></i>
                         <input type="text" name="link" id="m-link" class="form-input" style="padding-right:70px;" placeholder="https://..." required>
                         <button type="button" class="paste-btn" onclick="pasteLink()">PASTE</button>
                     </div>
                 </div>
                 
                 <div id="grp-qty" class="form-group">
-                    <label class="form-label">Quantity <small id="min-max" style="float:right;color:var(--primary)"></small></label>
-                    <input type="number" name="quantity" id="m-qty" class="form-input" placeholder="1000" required>
-                </div>
-
-                <div id="grp-drip" style="display:none;">
-                    <label class="drip-toggle">
-                        <input type="checkbox" id="drip-check" onchange="toggleDrip()"> 
-                        <span><b>Auto-Likes / Drip-feed</b> (Schedule)</span>
-                    </label>
-                    <div class="drip-area" id="drip-fields">
-                        <input type="hidden" name="dripfeed" id="drip-val" value="0">
-                        <div class="drip-grid">
-                            <div>
-                                <label class="form-label" style="font-size:0.8rem;">Runs</label>
-                                <input type="number" name="runs" id="m-runs" class="form-input" min="1">
-                            </div>
-                            <div>
-                                <label class="form-label" style="font-size:0.8rem;">Gap</label>
-                                <div style="display:flex; gap:5px;">
-                                    <input type="number" id="m-interval-raw" class="form-input" style="flex:1">
-                                    <select id="m-interval-unit" class="form-input" style="width:80px; padding:5px;">
-                                        <option value="1">Min</option>
-                                        <option value="60">Hour</option>
-                                        <option value="1440">Day</option>
-                                    </select>
-                                </div>
-                                <input type="hidden" name="interval" id="m-interval">
-                            </div>
-                        </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <label class="form-label">Quantity</label>
+                        <small id="min-max" style="font-size:0.7rem; color:var(--primary); font-weight:600;"></small>
+                    </div>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-hashtag"></i>
+                        <input type="number" name="quantity" id="m-qty" class="form-input" placeholder="e.g. 1000" required>
                     </div>
                 </div>
 
                 <div id="grp-com" class="form-group" style="display:none">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <label class="form-label" style="margin:0;">Comments (1 per line)</label>
-                        <button type="button" class="btn-ai-gen" onclick="generateAiComments()" id="ai-btn-txt">
-                            ✨ Generate with AI
-                        </button>
+                    <label class="form-label">Comments (1 per line)</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-regular fa-comment-dots" style="top:20px;"></i>
+                        <textarea name="comments" id="m-com" class="form-input" rows="3" style="padding-left:40px; height:auto;" placeholder="Nice post!"></textarea>
                     </div>
-                    <textarea name="comments" id="m-com" class="form-input" rows="4" placeholder="Nice post!"></textarea>
                 </div>
 
-                <div style="display:flex;justify-content:space-between;align-items:center;margin:15px 0;">
-                    <span style="color:#64748b;font-weight:600;">Total Charge</span>
-                    <span id="m-total" style="color:var(--primary);font-size:1.4rem;font-weight:800;">0.00</span>
+                <div class="total-charge-area">
+                    <span style="color:#64748b; font-weight:600; font-size:0.9rem;">Total Charge</span>
+                    <span id="m-total" style="color:var(--primary); font-size:1.2rem; font-weight:800;">0.00</span>
                 </div>
 
-                <button type="submit" class="btn-submit">CONFIRM ORDER</button>
+                <button type="submit" class="btn-submit">CONFIRM ORDER <i class="fa-solid fa-arrow-right" style="margin-left:5px;"></i></button>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-// --- STATE MANAGEMENT ---
 let historyStack = ['home']; 
 let currentApp = null;
 let currentCat = null;
 let activeServiceList = [];
 let currentFilterType = 'all';
 
-// --- NAVIGATION ---
 function navigateTo(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.getElementById(viewId).classList.add('active');
@@ -477,84 +579,87 @@ function goBack() {
     if(historyStack.length <= 1) return;
     historyStack.pop();
     let prevView = historyStack[historyStack.length - 1];
-    
     if(prevView === 'home') navigateTo('view-home');
     if(prevView === 'subcats') navigateTo('view-subcats');
 }
 
-// --- OPEN APP (UPDATED: VERTICAL IOS STYLE) ---
 function goToApp(appName) {
     currentApp = appName;
     historyStack.push('subcats');
     document.getElementById('subcat-title').innerText = appName;
     
     const container = document.getElementById('subcat-image-container');
-    container.innerHTML = ''; // Clear old content
+    container.innerHTML = ''; 
     
-    // Default filters if not found
-    const filters = window.appsData[appName]?.filters || ['Followers','Likes'];
+    const filters = window.appsData[appName]?.filters || [];
     
+    if(filters.length === 0) {
+        container.innerHTML = "<div style='color:#999; padding:20px;'>No categories found.</div>";
+    }
+
     filters.forEach((filter, index) => {
-        // --- IMAGE NAME LOGIC ---
-        // Format: AppName-FilterName.png (e.g. Instagram-Followers.png)
-        let safeApp = appName.replace(/\s/g, ''); 
-        let safeFilter = filter.replace(/\s/g, '');
-        let imgName = `${safeApp}-${safeFilter}.png`;
-        let imgPath = `../assets/img/icons/${imgName}`;
-
-        // Create the Image (No Div Wrapper, No Text)
         let img = document.createElement('img');
-        img.src = imgPath;
-        img.className = 'ios-img-btn'; // Use the new Vertical IOS style
-        img.alt = filter;
+        let imgPath = `../assets/uploads/${filter.icon}`; 
         
-        // Add Staggered Animation Delay for iOS feel
-        // Each item appears 0.08s after the previous one
-        img.style.animation = `iosSlideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`;
-        img.style.animationDelay = `${index * 0.08}s`; 
-
-        img.onerror = function() { 
-            console.warn("Missing Image:", imgPath);
+        img.onerror = function() {
+            this.onerror = null;
+            this.src = `../assets/img/icons/${filter.icon}`;
         };
-
-        img.onclick = () => goToServices(filter);
         
-        // Append directly to vertical container
+        img.src = imgPath;
+        img.className = 'ios-img-btn'; 
+        img.alt = filter.name;
+        
+        // Stack Animation inside the box
+        img.style.animation = `listSlide 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`;
+        img.style.animationDelay = `${index * 0.05}s`; 
+
+        img.onclick = () => goToServices(filter.keys, filter.name);
         container.appendChild(img);
     });
     
     navigateTo('view-subcats');
 }
 
-// --- LOAD SERVICES ---
-function goToServices(filterName) {
+function goToServices(keywords, filterName) {
     currentCat = filterName;
     historyStack.push('services');
     document.getElementById('svc-list-title').innerText = `${currentApp} ${filterName}`;
     
-    let rawServices = window.appsData[currentApp].services;
+    let rawServices = window.appsData[currentApp].services || [];
+    let keys = keywords ? keywords.split(',').map(k => k.trim().toLowerCase()) : [];
+
     activeServiceList = rawServices.map(s => window.svcData[s.id]).filter(s => {
-        let cat = s.cat.toLowerCase();
-        let f = filterName.toLowerCase();
-        if(f === 'followers' && (cat.includes('follow') || cat.includes('sub'))) return true;
-        if(cat.includes(f)) return true;
-        return false;
+        let serviceName = s.name.toLowerCase();
+        let serviceCat = s.cat.toLowerCase();
+        let fName = filterName.toLowerCase();
+        
+        let keywordMatch = false;
+        if (keys.length > 0) {
+            if (keys.includes('*')) return true;
+            for (let key of keys) {
+                if (serviceName.includes(key) || serviceCat.includes(key)) {
+                    keywordMatch = true;
+                    break;
+                }
+            }
+        }
+        
+        if (keys.length === 0) {
+            if(fName === 'followers' && (serviceCat.includes('follow') || serviceCat.includes('sub'))) return true;
+            if(serviceCat.includes(fName)) return true;
+        }
+
+        return keywordMatch;
     });
 
-    if(activeServiceList.length === 0) {
-        activeServiceList = rawServices.map(s => window.svcData[s.id]);
-    }
-
-    // Reset filters visual
     document.querySelectorAll('.filter-btn').forEach(c => c.classList.remove('active'));
     currentFilterType = 'all';
-
     renderServices();
     navigateTo('view-services');
 }
 
 function applyFilter(element, type) {
-    // Check if clicking same filter to toggle off
     if (element.classList.contains('active')) {
         element.classList.remove('active');
         currentFilterType = 'all';
@@ -573,54 +678,30 @@ function renderServices() {
     
     let list = [...activeServiceList];
 
-    // UPDATED LOGIC FOR ALL FILTERS
-    if(currentFilterType === 'cheapest') {
-        list.sort((a, b) => a.rate - b.rate);
-    } else if (currentFilterType === 'high_rate') {
-        list.sort((a, b) => b.rate - a.rate);
-    } else if (currentFilterType === 'high_quality') {
-        list = list.filter(s => s.name.toLowerCase().includes('hq') || s.name.toLowerCase().includes('vip'));
-    } else if (currentFilterType === 'instant') {
-        list = list.filter(s => s.name.toLowerCase().includes('instant') || s.cat.toLowerCase().includes('instant'));
-    } else if (currentFilterType === 'non_drop') {
-        list = list.filter(s => s.name.toLowerCase().includes('non-drop'));
-    } else if (currentFilterType === 'refill') {
-        list = list.filter(s => s.refill === true);
-    } else if (currentFilterType === 'no_refill') {
-        list = list.filter(s => s.refill === false);
-    }
+    if(currentFilterType === 'cheapest') list.sort((a, b) => a.rate - b.rate);
+    else if (currentFilterType === 'high_rate') list.sort((a, b) => b.rate - a.rate);
+    else if (currentFilterType === 'high_quality') list = list.filter(s => s.name.toLowerCase().includes('hq') || s.name.toLowerCase().includes('vip'));
+    else if (currentFilterType === 'instant') list = list.filter(s => s.name.toLowerCase().includes('instant') || s.cat.toLowerCase().includes('instant'));
+    else if (currentFilterType === 'non_drop') list = list.filter(s => s.name.toLowerCase().includes('non-drop'));
+    else if (currentFilterType === 'refill') list = list.filter(s => s.refill === true);
+    else if (currentFilterType === 'no_refill') list = list.filter(s => s.refill === false);
 
-    if(list.length === 0) {
-        noMsg.style.display = 'block';
-    } else {
+    if(list.length === 0) noMsg.style.display = 'block';
+    else {
         noMsg.style.display = 'none';
         list.forEach(s => {
             let price = (s.rate * window.currConfig.rate).toFixed(2);
             let tagsHtml = s.refill ? `<span class="tag green">♻️ Refill</span>` : `<span class="tag red">🚫 No Refill</span>`;
-
             let item = document.createElement('div');
-            item.className = 'svc-item';
+            item.className = 'svc-item'; 
             item.onclick = () => openModal(s.id);
-            item.innerHTML = `
-                <div class="svc-header">
-                    <span class="svc-title">${s.name}</span>
-                    <span class="svc-price">${window.currConfig.sym} ${price}</span>
-                </div>
-                <div class="svc-tags">
-                    ${tagsHtml}
-                    <span class="tag blue">⏱ ${s.avg}</span>
-                </div>
-            `;
+            item.innerHTML = `<div class="svc-header"><span class="svc-title">${s.name}</span><span class="svc-price">${window.currConfig.sym} ${price}</span></div><div class="svc-tags">${tagsHtml}<span class="tag blue">⏱ ${s.avg}</span></div>`;
             container.appendChild(item);
         });
     }
 }
 
-// =========================================
-// --- MODAL & ORDER LOGIC ---
-// =========================================
 let currSvc = null;
-
 function openModal(id) {
     let s = window.svcData[id]; if(!s) return;
     currSvc = s;
@@ -628,69 +709,56 @@ function openModal(id) {
     document.getElementById('min-max').innerText = `Min: ${s.min} | Max: ${s.max}`;
     document.getElementById('m-qty').setAttribute('min', s.min);
     document.getElementById('m-qty').setAttribute('max', s.max);
-    
-    // HTML-stripped description
     document.getElementById('m-desc').innerText = s.desc.replace(/<[^>]*>?/gm, ''); 
     
     let rC = s.refill ? '#10b981' : '#ef4444';
     let cC = s.cancel ? '#10b981' : '#ef4444';
+    
+    // Tighter Stats
     document.getElementById('m-stats').innerHTML = `
-        <div class="stat-box"><small>Avg Time</small><b>${s.avg}</b></div>
-        <div class="stat-box" style="border-bottom:3px solid ${rC}"><small>Refill</small><b style="color:${rC}">${s.refill?'Yes':'No'}</b></div>
-        <div class="stat-box" style="border-bottom:3px solid ${cC}"><small>Cancel</small><b style="color:${cC}">${s.cancel?'Yes':'No'}</b></div>
+        <div class="stat-box"><small>Refill</small><b style="color:${rC}">${s.refill?'Yes':'No'}</b></div>
+        <div class="stat-box"><small>Cancel</small><b style="color:${cC}">${s.cancel?'Yes':'No'}</b></div>
     `;
+
+    // --- CALCULATE ETA (LIVE) ---
+    if(s.avg_raw > 0) {
+        let now = new Date();
+        // Add minutes to current time
+        let completionTime = new Date(now.getTime() + s.avg_raw * 60000);
+        let timeString = completionTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        
+        document.getElementById('eta-text').innerText = "Done by " + timeString;
+        document.getElementById('eta-container').style.display = 'flex';
+    } else {
+        document.getElementById('eta-container').style.display = 'none';
+    }
 
     document.getElementById('m-qty').value=''; 
     document.getElementById('m-com').value=''; 
     document.getElementById('m-link').value='';
     document.getElementById('m-total').innerText = window.currConfig.sym + ' 0.00';
-    document.getElementById('drip-check').checked = false; 
-    document.getElementById('drip-fields').style.display = 'none';
 
-    // Logic for toggling fields
     if(s.type === 'Package') {
         document.getElementById('grp-qty').style.display='none'; 
         document.getElementById('grp-com').style.display='none'; 
-        document.getElementById('grp-drip').style.display = 'none'; 
         document.getElementById('m-qty').value = '1'; 
-        document.getElementById('m-qty').readOnly = true; 
         updatePrice(1);
     } else if(s.is_comment || s.type === 'Custom Comments') { 
         document.getElementById('grp-qty').style.display='none'; 
         document.getElementById('grp-com').style.display='block'; 
-        document.getElementById('m-qty').readOnly=true; 
-        document.getElementById('grp-drip').style.display = 'none'; 
     } else { 
         document.getElementById('grp-qty').style.display='block'; 
         document.getElementById('grp-com').style.display='none'; 
-        document.getElementById('m-qty').readOnly=false; 
-        document.getElementById('grp-drip').style.display = s.drip ? 'block' : 'none';
     }
-
     document.getElementById('order-modal').classList.add('active');
-    if(s.type !== 'Package') updatePrice(0);
 }
 
-function closeModal() { 
-    document.getElementById('order-modal').classList.remove('active'); 
-}
-
-function toggleDrip() {
-    const on = document.getElementById('drip-check').checked;
-    document.getElementById('drip-fields').style.display = on ? 'grid' : 'none';
-    document.getElementById('drip-val').value = on ? '1' : '0';
-    updatePrice(parseInt(document.getElementById('m-qty').value)||0);
-}
+function closeModal() { document.getElementById('order-modal').classList.remove('active'); }
 
 function updatePrice(qty) {
     if(!currSvc) return;
-    let multiplier = (document.getElementById('drip-check').checked) ? (parseInt(document.getElementById('m-runs').value)||0) : 1;
-    if(multiplier < 1) multiplier = 1;
-    let totalQty = qty * multiplier;
-    
-    let p = (currSvc.type === 'Package') ? currSvc.rate : (totalQty/1000)*currSvc.rate;
+    let p = (currSvc.type === 'Package') ? currSvc.rate : (qty/1000)*currSvc.rate;
     if(window.currConfig.code!=='PKR') p*=window.currConfig.rate;
-    
     document.getElementById('m-total').innerText = window.currConfig.sym + ' ' + p.toFixed(2);
 }
 
@@ -701,95 +769,33 @@ async function pasteLink() {
     } catch(err) { alert('Clipboard permission denied'); }
 }
 
-// EVENTS
 document.getElementById('m-qty').addEventListener('input', function(){ updatePrice(parseInt(this.value)||0) });
-document.getElementById('m-runs').addEventListener('input', function(){ updatePrice(parseInt(document.getElementById('m-qty').value)||0) });
 document.getElementById('m-com').addEventListener('input', function(){ 
     let c=this.value.split('\n').filter(x=>x.trim()!=='').length; 
     document.getElementById('m-qty').value=c; 
     updatePrice(c); 
 });
 
-// SUBMIT ORDER
 document.getElementById('order-form').addEventListener('submit', function(e) {
     e.preventDefault();
-    if(!currSvc) return;
-    
-    let qty = parseInt(document.getElementById('m-qty').value) || 0;
-    if(currSvc.type !== 'Package') {
-        if(qty < currSvc.min) { alert(`Min qty: ${currSvc.min}`); return; }
-        if(qty > currSvc.max) { alert(`Max qty: ${currSvc.max}`); return; }
-    }
-
     const formData = new FormData(this);
-    
-    // AJAX Submission
     fetch('smm_order_action.php', { method:'POST', body: formData })
     .then(r=>r.text())
     .then(res => {
         closeModal();
-        Swal.fire({
-            title: 'Order Received!',
-            text: 'Your order is being processed.',
-            icon: 'success',
-            confirmButtonColor: '#8b5cf6'
-        });
-    }).catch(err => {
-        alert("Error processing order");
+        Swal.fire({ title: 'Order Received!', text: 'Your order is being processed.', icon: 'success', confirmButtonColor: '#8b5cf6' });
     });
 });
 
-// AI COMMENT LOGIC
-async function generateAiComments() {
-    if(!currSvc) return;
-    let btnText = document.getElementById('ai-btn-txt');
-    let originalText = btnText.innerText;
-    let link = document.getElementById('m-link').value;
-    if(!link) { alert("Please paste the Post Link first!"); return; }
-
-    const { value: mood } = await Swal.fire({
-        title: 'Comment Mood?',
-        input: 'select',
-        inputOptions: { 'Positive': '❤️ Love/Positive', 'Funny': '😂 Funny', 'Savage': '🔥 Savage' },
-        showCancelButton: true
-    });
-
-    if (mood) {
-        btnText.innerText = "⏳ Writing...";
-        fetch('ai_helper.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `action=generate_comments&service_name=${encodeURIComponent(currSvc.name)}&link=${encodeURIComponent(link)}&mood=${encodeURIComponent(mood)}`
-        })
-        .then(r => r.json())
-        .then(d => {
-            if(d.status === 'success') {
-                document.getElementById('m-com').value = d.data;
-                document.getElementById('m-com').dispatchEvent(new Event('input')); // Trigger resize/price update
-            } else { alert(d.message); }
-            btnText.innerText = originalText;
-        })
-        .catch(e => { btnText.innerText = originalText; });
-    }
-}
-
-// SEARCH
 document.getElementById('global-search').addEventListener('input', function(e){
     let q=e.target.value.toLowerCase();
     if(q.length > 2) {
         historyStack.push('services');
         navigateTo('view-services');
         document.getElementById('svc-list-title').innerText = "Search Results";
-        document.querySelector('.filter-wrapper').style.display = 'none';
-        
-        activeServiceList = Object.values(window.svcData).filter(s => 
-            s.name.toLowerCase().includes(q) || s.cat.toLowerCase().includes(q)
-        );
+        activeServiceList = Object.values(window.svcData).filter(s => s.name.toLowerCase().includes(q) || s.cat.toLowerCase().includes(q));
         renderServices();
-    } else if (q.length === 0 && historyStack.includes('services')) {
-        document.querySelector('.filter-wrapper').style.display = 'flex';
-        goBack();
-    }
+    } else if (q.length === 0 && historyStack.includes('services')) goBack();
 });
 
 VanillaTilt.init(document.querySelectorAll(".app-card"), { max: 15, speed: 400, glare: true, "max-glare": 0.2 });
