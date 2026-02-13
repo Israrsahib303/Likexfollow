@@ -17,11 +17,30 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
+    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST'] . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); ?>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LikexFollow | The #1 SMM Panel & Premium Store</title>
-    <meta name="description" content="The most advanced SMM Panel. Buy Instagram Followers, TikTok Likes, YouTube Views and Premium Tools instantly. Wholesale rates for resellers.">
+    <title>LikexFollow - Cheapest SMM Panel Pakistan & Digital Services</title>
+    <meta property="og:site_name" content="LikexFollow">
+<meta property="og:title" content="LikexFollow - #1 Cheapest SMM Panel Pakistan">
+<meta property="og:description" content="Get instant Instagram followers, TikTok likes & YouTube views starting at Rs. 10. Join Pakistan's most trusted SMM reseller panel.">
+<meta property="og:image" content="https://likexfollow.com/assets/img/site_logo_1764671832.png">
+<meta property="og:url" content="https://likexfollow.com/">
+<meta property="og:type" content="website">
+<meta name="description" content="LikexFollow is Pakistan's #1 SMM Panel offering cheap Instagram followers, TikTok likes, YouTube views, and Netflix subscriptions. Instant delivery & wholesale rates.">
+<meta name="keywords" content="likexfollow, likexfollow.com, like x follow, smm panel pakistan, cheapest smm panel, buy followers pakistan, digital store pakistan">
+<meta name="author" content="LikexFollow Team">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://likexfollow.com/">
+<meta property="og:title" content="LikexFollow - #1 SMM Panel & Digital Store">
+<meta property="og:description" content="Boost your social media with LikexFollow. Get instant followers, likes, and premium subscriptions at wholesale prices.">
+<meta property="og:image" content="https://likexfollow.com/assets/img/site_logo_1764671832.png">
     
+    <link rel="shortcut icon" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="icon" type="image/jpeg" sizes="32x32" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="icon" type="image/jpeg" sizes="192x192" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="apple-touch-icon" href="https://likexfollow.com/assets/img/favicon.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
@@ -140,6 +159,48 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
             100% { transform: translateX(-50%); }
         }
     </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://likexfollow.com/#organization",
+      "name": "LikexFollow",
+      "url": "https://likexfollow.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://likexfollow.com/assets/img/site_logo_1764671832.png",
+        "width": 600,
+        "height": 60
+      },
+      "sameAs": [
+        "https://www.instagram.com/likexfollow",
+        "https://www.facebook.com/likexfollow",
+        "https://twitter.com/likexfollow"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+92-3097856447", 
+        "contactType": "customer support",
+        "areaServed": ["PK", "US", "GB"],
+        "availableLanguage": ["en", "ur"]
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://likexfollow.com/#website",
+      "url": "https://likexfollow.com/",
+      "name": "LikexFollow",
+      "alternateName": "LikexFollow SMM Panel",
+      "description": "LikexFollow is the cheapest SMM Panel in Pakistan for Instagram followers, TikTok likes, and YouTube views.",
+      "publisher": {
+        "@id": "https://likexfollow.com/#organization"
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body class="antialiased selection:bg-indigo-500 selection:text-white">
 
