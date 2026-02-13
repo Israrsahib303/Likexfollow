@@ -112,6 +112,13 @@ $og_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST'] . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); ?>">
+    <meta property="og:site_name" content="LikexFollow">
+<meta property="og:title" content="LikexFollow - #1 Cheapest SMM Panel Pakistan">
+<meta property="og:description" content="Get instant Instagram followers, TikTok likes & YouTube views starting at Rs. 10. Join Pakistan's most trusted SMM reseller panel.">
+<meta property="og:image" content="https://likexfollow.com/assets/img/site_logo_1764671832.png">
+<meta property="og:url" content="https://likexfollow.com/">
+<meta property="og:type" content="website">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -129,6 +136,10 @@ $og_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST
     <meta property="og:url" content="<?= $og_url ?>">
     <meta property="og:type" content="website">
 
+<link rel="shortcut icon" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="icon" type="image/jpeg" sizes="32x32" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="icon" type="image/jpeg" sizes="192x192" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="apple-touch-icon" href="https://likexfollow.com/assets/img/favicon.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
