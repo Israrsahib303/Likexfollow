@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /assets/img/favicon.jpg
+Disallow: /panel/
+Disallow: /includes/
+
+Sitemap: https://likexfollow.com/sitemap.xml
