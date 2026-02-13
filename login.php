@@ -168,6 +168,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - <?php echo $GLOBALS['settings']['site_name'] ?? 'LikexFollow'; ?></title>
     
+    <link rel="shortcut icon" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="icon" type="image/jpeg" sizes="32x32" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="icon" type="image/jpeg" sizes="192x192" href="https://likexfollow.com/assets/img/favicon.jpg">
+<link rel="apple-touch-icon" href="https://likexfollow.com/assets/img/favicon.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
