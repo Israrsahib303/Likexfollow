@@ -25,6 +25,7 @@ panel/
 premium_store.php
 register.php
 reset_password.php
+robots.txt
 service-worker.js
 service.php
 services.php
