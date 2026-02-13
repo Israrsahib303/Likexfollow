@@ -130,6 +130,7 @@ try {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
     /* Global Variables */
@@ -152,9 +153,11 @@ try {
 
     .sh-card { 
         background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 15px; 
-        box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #e5e7eb; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; 
         position: relative; overflow: hidden;
+        transition: transform 0.2s ease;
     }
+    .sh-card:hover { transform: translateY(-2px); }
     
     .card-watermark {
         position: absolute; top: 0; right: 0; width: 100%; height: 100%; 
@@ -163,7 +166,7 @@ try {
         filter: brightness(120%); z-index: 1; 
     }
     
-    .sh-header, .sh-meta, .sh-stats-grid, .sh-footer, .sh-actions { position: relative; z-index: 5; }
+    .sh-header, .sh-meta, .sh-stats-grid, .sh-footer, .sh-actions, .progress-area { position: relative; z-index: 5; }
 
     .sh-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
     .sh-title { font-weight: 700; font-size: 0.95rem; color: var(--text-dark); line-height: 1.4; width: 75%; }
@@ -178,60 +181,162 @@ try {
     .st-cancelled { background: #fee2e2; color: #dc2626; }
     .st-partial { background: #e0e7ff; color: #4338ca; }
 
-    .sh-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; background: #f9fafb; padding: 10px; border-radius: 10px; margin-bottom: 15px; }
+    /* --- CUTE ANIMATED PROGRESS BAR START --- */
+    .progress-area { margin: 15px 0; }
+    .cute-progress-track {
+        height: 18px;
+        background: #f1f5f9;
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .cute-progress-fill {
+        height: 100%;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 8px;
+        color: white;
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        
+        /* Candy Stripe Animation */
+        background-image: linear-gradient(
+            45deg, 
+            rgba(255, 255, 255, 0.2) 25%, 
+            transparent 25%, 
+            transparent 50%, 
+            rgba(255, 255, 255, 0.2) 50%, 
+            rgba(255, 255, 255, 0.2) 75%, 
+            transparent 75%, 
+            transparent
+        );
+        background-size: 20px 20px;
+        animation: candyStripe 1s linear infinite;
+    }
+
+    /* Gradients for different statuses */
+    .pg-processing { background-color: #3b82f6; } /* Fallback */
+    .pg-processing-gradient { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    
+    .pg-completed { background-color: #10b981; } /* Fallback */
+    .pg-completed-gradient { background: linear-gradient(90deg, #10b981, #34d399); }
+    
+    .pg-pending { background-color: #f59e0b; } /* Fallback */
+    .pg-pending-gradient { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    .pg-cancelled { background-color: #ef4444; } /* Fallback */
+    .pg-cancelled-gradient { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+    @keyframes candyStripe {
+        0% { background-position: 0 0; }
+        100% { background-position: 20px 20px; }
+    }
+    
+    /* Pulse effect for processing */
+    .pulse-glow {
+        animation: candyStripe 1s linear infinite, glowPulse 2s infinite;
+    }
+    @keyframes glowPulse {
+        0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+    /* --- CUTE ANIMATED PROGRESS BAR END --- */
+
+    .sh-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; background: #f9fafb; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #f3f4f6; }
     .sh-stat-item { text-align: center; }
-    .sh-stat-lbl { font-size: 0.7rem; color: var(--text-light); display: block; margin-bottom: 2px; }
+    .sh-stat-lbl { font-size: 0.65rem; color: var(--text-light); text-transform:uppercase; letter-spacing:0.5px; display: block; margin-bottom: 4px; }
     .sh-stat-val { font-size: 0.9rem; font-weight: 700; color: var(--text-dark); }
 
     .sh-footer { font-size: 0.8rem; color: var(--text-light); border-top: 1px dashed #e5e7eb; padding-top: 10px; margin-bottom: 15px; }
-    .sh-link { color: var(--primary); text-decoration: none; word-break: break-all; display: block; margin-bottom: 5px; }
+    .sh-link { color: var(--primary); text-decoration: none; word-break: break-all; display: block; margin-bottom: 5px; transition: color 0.2s; }
+    .sh-link:hover { color: #4338ca; }
     
     .sh-actions { display: flex; gap: 10px; margin-top: 10px; }
     
     .hide-cancel { display: none !important; }
 
     /* Elite Button Styles */
-    .btn-refill-elite { position: relative; width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 800; cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 8px; text-transform: uppercase; background: #f3f4f6; color: #1f2937; }
-    .btn-refill-elite.ready { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; }
+    .btn-refill-elite { position: relative; width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 800; cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 8px; text-transform: uppercase; background: #f3f4f6; color: #1f2937; transition: all 0.3s ease; }
+    .btn-refill-elite:hover { transform: scale(1.02); }
+    .btn-refill-elite.ready { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
     .btn-refill-elite.locked { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; opacity: 0.7; cursor: not-allowed; }
     .btn-refill-elite.cooldown { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; cursor: not-allowed; }
     .timer-text { position: relative; z-index: 2; color: #d97706; background: rgba(254, 243, 199, 0.5); padding: 2px 6px; border-radius: 4px; }
 
     .btn-cancel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; border-radius: 8px; border: none; font-weight: 600; font-size: 0.85rem; cursor: pointer; background: #fee2e2; color: var(--danger); transition: 0.2s; }
+    .btn-cancel:hover { background: #fecaca; transform: scale(1.02); }
     
     /* Receipt Button Style */
     .btn-receipt { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px; border-radius: 8px; border: none; font-weight: 600; font-size: 0.85rem; cursor: pointer; background: #e0e7ff; color: #4338ca; transition: 0.2s; }
-    .btn-receipt:hover { background: #c7d2fe; }
+    .btn-receipt:hover { background: #c7d2fe; transform: scale(1.02); }
 
-    .msg-err { background: #fee2e2; color: #991b1b; padding:10px; border-radius:8px; margin-bottom:10px; text-align:center; }
-    .msg-suc { background: #dcfce7; color: #166534; padding:10px; border-radius:8px; margin-bottom:10px; text-align:center; }
+    .msg-err { background: #fee2e2; color: #991b1b; padding:12px; border-radius:12px; margin-bottom:15px; text-align:center; font-weight:600; border:1px solid #fecaca; }
+    .msg-suc { background: #dcfce7; color: #166534; padding:12px; border-radius:12px; margin-bottom:15px; text-align:center; font-weight:600; border:1px solid #bbf7d0; }
 </style>
 
 <div class="sh-container">
-    <div class="page-head"><a href="smm_order.php" class="back-circle">❮</a><h2>My Orders</h2></div>
+    <div class="page-head"><a href="smm_order.php" class="back-circle"><i class="fa-solid fa-chevron-left"></i></a><h2>My Orders</h2></div>
 
-    <?php if ($error): ?><div class="msg-err"><?= sanitize($error) ?></div><?php endif; ?>
-    <?php if ($success): ?><div class="msg-suc"><?= sanitize($success) ?></div><?php endif; ?>
+    <?php if ($error): ?><div class="msg-err"><i class="fa-solid fa-triangle-exclamation"></i> <?= sanitize($error) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="msg-suc"><i class="fa-solid fa-check-circle"></i> <?= sanitize($success) ?></div><?php endif; ?>
 
     <?php if (empty($smm_orders)): ?>
-        <div style="text-align:center; padding:40px; color:#999;">No orders found.</div>
+        <div style="text-align:center; padding:60px; color:#9ca3af;">
+            <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;"></i><br>
+            No orders found yet.
+        </div>
     <?php else: ?>
         <?php foreach ($smm_orders as $order): ?>
             <?php
                 $st = strtolower($order['status']);
                 $stClass = 'st-processing';
-                if(strpos($st, 'pend')!==false) $stClass='st-pending';
-                elseif(strpos($st, 'comp')!==false) $stClass='st-completed';
-                elseif(strpos($st, 'cancel')!==false) $stClass='st-cancelled';
-                elseif(strpos($st, 'partial')!==false) $stClass='st-partial';
+                $pgGradient = 'pg-processing-gradient pulse-glow'; // Default animation style
+                
+                if(strpos($st, 'pend')!==false) { 
+                    $stClass='st-pending'; 
+                    $pgGradient = 'pg-pending-gradient';
+                }
+                elseif(strpos($st, 'comp')!==false) { 
+                    $stClass='st-completed'; 
+                    $pgGradient = 'pg-completed-gradient';
+                }
+                elseif(strpos($st, 'cancel')!==false) { 
+                    $stClass='st-cancelled'; 
+                    $pgGradient = 'pg-cancelled-gradient';
+                }
+                elseif(strpos($st, 'partial')!==false) { 
+                    $stClass='st-partial'; 
+                    $pgGradient = 'pg-processing-gradient';
+                }
 
                 $start = (int)$order['start_count']; $qty = (int)$order['quantity']; $remains = (int)$order['remains'];
                 $delivered = 0; $current = $start;
                 
+                // Logic for calculation
                 if ($st == 'completed') { $delivered = $qty; $current = $start + $qty; } 
                 elseif ($st == 'partial' || ($st == 'in_progress' && $start > 0)) { $delivered = $qty - $remains; $current = $start + $delivered; }
                 if ($st == 'cancelled') $remains = $qty; 
                 
+                // --- PERCENTAGE CALCULATION FOR BAR ---
+                $percent = 0;
+                if($qty > 0) {
+                    $percent = round(($delivered / $qty) * 100);
+                }
+                if($percent > 100) $percent = 100;
+                if($percent < 0) $percent = 0;
+                
+                // Force full bar if completed, empty if pending (unless manual start count logic exists)
+                if($st == 'completed') $percent = 100;
+                if($st == 'pending') $percent = 5; // Small start to show it's alive
+
                 $refundAmount = 0.00;
                 if ($st == 'partial' || $st == 'cancelled') {
                     $remains_for_refund = (int)$order['remains']; 
@@ -293,8 +398,19 @@ try {
                         <?php endif; ?>
                     <?php endif; ?>
                     <span>ID: #<?= $order['id'] ?></span>
-                    <span>Qty: <?= $order['quantity'] ?></span>
                 </div>
+
+                <div class="progress-area">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.75rem; font-weight:700; color:var(--text-light);">
+                        <span>Progress</span>
+                        <span><?= $percent ?>%</span>
+                    </div>
+                    <div class="cute-progress-track">
+                        <div class="cute-progress-fill <?= $pgGradient ?>" style="width: <?= $percent ?>%;">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="sh-stats-grid">
                     <div class="sh-stat-item"><span class="sh-stat-lbl">Start</span><span class="sh-stat-val"><?= number_format($start) ?></span></div>
                     <div class="sh-stat-item"><span class="sh-stat-lbl">Delivered</span><span class="sh-stat-val"><?= number_format($delivered) ?></span></div>
@@ -302,7 +418,7 @@ try {
                     <div class="sh-stat-item"><span class="sh-stat-lbl">Current</span><span class="sh-stat-val"><?= number_format($current) ?></span></div>
                 </div>
                 <div class="sh-footer">
-                    <a href="<?= sanitize($order['link']) ?>" target="_blank" class="sh-link">🔗 <?= substr(sanitize($order['link']), 0, 40) . '...' ?></a>
+                    <a href="<?= sanitize($order['link']) ?>" target="_blank" class="sh-link"><i class="fa-solid fa-link"></i> <?= substr(sanitize($order['link']), 0, 40) . '...' ?></a>
                     <div style="display:flex; align-items:center; gap:5px;"><span>📅 <?= date('d M, Y h:i A', strtotime($order['created_at'])) ?></span></div>
                 </div>
                 <div class="sh-actions">
@@ -374,6 +490,10 @@ function generateReceipt(btn, orderId) {
     // Remove the actions div (buttons)
     const actionsDiv = clone.querySelector('.sh-actions');
     if(actionsDiv) actionsDiv.remove();
+    
+    // Remove Progress Bar for receipt (Clean look)
+    const progressDiv = clone.querySelector('.progress-area');
+    if(progressDiv) progressDiv.remove();
 
     // Style the clone for receipt look
     clone.style.width = "500px"; // Fixed width for receipt
