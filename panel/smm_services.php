@@ -97,12 +97,11 @@ if ($action == 'add_manual_save' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         $cancel = (int)$_POST['cancel'];
         $avg_time = $_POST['avg_time'] ?: 'Instant';
         
-        // Category Logic
-        $cat_mode = $_POST['cat_mode']; // 'existing' or 'new'
-        $category = ($cat_mode == 'new') ? $_POST['new_category'] : $_POST['existing_category'];
+        // Category Logic (Modified to strictly use Existing Sub-Cats)
+        $category = $_POST['existing_category'] ?? '';
         $cat_icon = $_POST['cat_icon'] ?? ''; 
 
-        if (empty($category)) throw new Exception("Category name is required.");
+        if (empty($category)) throw new Exception("Category is required. Please select one.");
 
         // 1. Handle Provider (Fix FK Constraint)
         $stmt = $db->prepare("SELECT id FROM smm_providers WHERE api_url = 'manual_internal' LIMIT 1");
@@ -115,7 +114,7 @@ if ($action == 'add_manual_save' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $provider_id = $db->lastInsertId();
         }
 
-        // 2. Handle Category (Insert or Update Icon)
+        // 2. Handle Category (Insert into flat table if needed for compatibility)
         $chkCat = $db->prepare("SELECT id FROM smm_categories WHERE name = ?");
         $chkCat->execute([$category]);
         $catExist = $chkCat->fetchColumn();
@@ -246,8 +245,23 @@ $total_svc = $db->query("SELECT COUNT(*) FROM smm_services WHERE manually_delete
 $active_svc = $db->query("SELECT COUNT(*) FROM smm_services WHERE is_active=1 AND manually_deleted=0")->fetchColumn();
 $disabled_svc = $total_svc - $active_svc;
 
-// Fetch Local Categories for Dropdowns
-$local_cats = $db->query("SELECT name FROM smm_categories ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
+// --- UPDATED: Fetch Categories from smm_sub_categories table ---
+$local_cats = [];
+try {
+    // Try to fetch properly structured sub-categories
+    $stmtCats = $db->query("SELECT main_app, sub_cat_name FROM smm_sub_categories ORDER BY main_app ASC, sort_order ASC");
+    if ($stmtCats) {
+        while ($row = $stmtCats->fetch(PDO::FETCH_ASSOC)) {
+            // Format: Instagram - Likes
+            $local_cats[] = $row['main_app'] . ' - ' . $row['sub_cat_name'];
+        }
+    }
+} catch (Exception $e) {
+    // Fallback if table doesn't exist (Unlikely in your system)
+    $local_cats = $db->query("SELECT name FROM smm_categories ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
+}
+
+// Fetch Providers
 $local_providers = $db->query("SELECT * FROM smm_providers WHERE is_active=1")->fetchAll();
 ?>
 
@@ -508,6 +522,8 @@ $local_providers = $db->query("SELECT * FROM smm_providers WHERE is_active=1")->
             </select>
             <input type="number" name="bulk_amount" id="bulk_price_input" class="ios-input" placeholder="%" style="width:80px; display:none; padding:10px;">
             <button class="ios-btn btn-light" onclick="return confirm('Apply this action to selected services?')">Apply</button>
+            
+            <a href="smm_services.php?action=delete_all" class="ios-btn btn-red" onclick="return confirm('⚠️ EXTREME WARNING ⚠️\n\nThis will delete ALL Services and ALL Categories permanently.\n\nThis action cannot be undone!\n\nAre you sure?')"><i class="fa fa-trash-can"></i> Delete Everything</a>
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -652,23 +668,14 @@ $local_providers = $db->query("SELECT * FROM smm_providers WHERE is_active=1")->
                 
                 <label style="font-weight:600; font-size:13px; color:var(--ios-text-sec);">Category</label>
                 <div style="background:#F5F5F7; padding:15px; border-radius:14px; margin-bottom:15px; border:1px solid #E5E5EA;">
-                    <div style="display:flex; gap:20px; margin-bottom:12px;">
-                        <label style="cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500;">
-                            <input type="radio" name="cat_mode" value="existing" checked onclick="toggleCat('exist')"> Existing
-                        </label>
-                        <label style="cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500;">
-                            <input type="radio" name="cat_mode" value="new" onclick="toggleCat('new')"> Create New
-                        </label>
-                    </div>
                     <div id="cat_exist">
+                        <label style="font-weight:600; font-size:13px; color:var(--ios-text-sec); margin-bottom:6px; display:block;">Select Category</label>
                         <select name="existing_category" class="ios-input" style="background:white;">
+                            <option value="">-- Select Category --</option>
                             <?php foreach($local_cats as $lc): ?>
                                 <option value="<?= htmlspecialchars($lc) ?>"><?= htmlspecialchars($lc) ?></option>
                             <?php endforeach; ?>
                         </select>
-                    </div>
-                    <div id="cat_new" style="display:none;">
-                        <input type="text" name="new_category" class="ios-input" style="background:white;" placeholder="New Category Name">
                     </div>
                 </div>
 
@@ -731,11 +738,6 @@ $local_providers = $db->query("SELECT * FROM smm_providers WHERE is_active=1")->
     document.getElementById('addModal').addEventListener('click', function(e) {
         if (e.target === this) closeModal();
     });
-    
-    function toggleCat(mode) {
-        document.getElementById('cat_exist').style.display = (mode === 'exist') ? 'block' : 'none';
-        document.getElementById('cat_new').style.display = (mode === 'new') ? 'block' : 'none';
-    }
 
     function toggleBulkPrice(el) {
         document.getElementById('bulk_price_input').style.display = (el.value === 'price_inc') ? 'inline-block' : 'none';
