@@ -152,216 +152,466 @@ $logs = $db->query("
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flash Manager Ultimate</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flash Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=San+Francisco+Pro+Display:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Outfit', sans-serif; background: #f1f5f9; }
-        .g-card { background: rgba(255, 255, 255, 0.95); border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05); }
-        .input-box { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; outline: none; margin-top: 5px; font-size: 0.9rem; background: #fdfdfe; transition: all 0.2s; }
-        .input-box:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); background: #fff; }
+        :root {
+            --ios-bg: #F5F5F7;
+            --ios-card: #FFFFFF;
+            --ios-text: #1D1D1F;
+            --ios-text-sec: #86868B;
+            --ios-blue: #0071E3;
+            --ios-green: #34C759;
+            --ios-red: #FF3B30;
+            --ios-indigo: #5856D6;
+            --ios-border: #E5E5EA;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 12px 30px rgba(0,0,0,0.12);
+            --radius: 20px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+            background-color: var(--ios-bg);
+            color: var(--ios-text);
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .ios-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Header & Stats */
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .page-title h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+        .page-title p {
+            margin: 6px 0 0;
+            color: var(--ios-text-sec);
+            font-size: 15px;
+        }
+
+        .stats-group {
+            display: flex;
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--ios-card);
+            border-radius: 16px;
+            padding: 16px 24px;
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+            min-width: 120px;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--ios-text-sec); letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+        .stat-val { font-size: 20px; font-weight: 700; color: var(--ios-text); }
+        .stat-val.green { color: var(--ios-green); }
+        .stat-val.indigo { color: var(--ios-indigo); }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        /* Card Styles */
+        .ios-card {
+            background: var(--ios-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 30px;
+            border: 1px solid rgba(0,0,0,0.02);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--ios-border);
+        }
+        .icon-box {
+            width: 36px; height: 36px;
+            background: var(--ios-blue);
+            color: white;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 4px 10px rgba(0, 113, 227, 0.3);
+        }
+        .card-title { font-size: 18px; font-weight: 700; margin: 0; }
+
+        /* Form Elements */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 0; }
+        .label { display: block; font-size: 12px; font-weight: 600; color: var(--ios-text-sec); margin-bottom: 8px; text-transform: uppercase; }
         
-        .preview-phone { width: 100%; max-width: 320px; margin: 0 auto; background: #fff; border-radius: 35px; border: 8px solid #1e293b; overflow: hidden; position: relative; height: 450px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
-        .p-screen { padding: 15px; height: 100%; background: #f8fafc; display: flex; flex-direction: column; justify-content: center; }
-        .p-deal-card { background: white; border-radius: 18px; padding: 15px; text-align: center; box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.15); border: 1px solid #eef2ff; }
-        .p-badge { background: #fee2e2; color: #ef4444; font-size: 9px; padding: 4px 8px; border-radius: 50px; text-transform: uppercase; font-weight: 800; display: inline-block; margin-bottom: 8px; }
-        .p-title { font-size: 13px; font-weight: 800; color: #1e293b; line-height: 1.3; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 34px; }
-        .p-price { font-size: 24px; font-weight: 900; color: #16a34a; display: block; }
-        .p-old { font-size: 12px; text-decoration: line-through; color: #94a3b8; font-weight: 600; }
-        .p-btn { background: #1e293b; color: white; border-radius: 12px; padding: 10px; font-size: 12px; font-weight: 700; width: 100%; display: block; margin-top: 10px; }
+        .ios-select, .ios-input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            background: #F2F2F7;
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--ios-text);
+            transition: all 0.2s;
+            box-sizing: border-box;
+            appearance: none;
+        }
+        .ios-select {
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2386868B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px top 50%;
+            background-size: 10px auto;
+            cursor: pointer;
+        }
+        .ios-input:focus, .ios-select:focus {
+            background: #fff;
+            border-color: var(--ios-blue);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+            outline: none;
+        }
+        .ios-input:disabled, .ios-select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Profit Box */
+        .profit-box {
+            background: #F0FDF4;
+            border: 1px solid #DCFCE7;
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            opacity: 0; 
+            transform: translateY(10px);
+            transition: all 0.3s;
+            display: none;
+        }
+        .profit-box.visible { opacity: 1; transform: translateY(0); display: flex; }
+        
+        .profit-val { font-size: 20px; font-weight: 700; color: #166534; }
+        .cost-val { font-size: 14px; color: var(--ios-text-sec); font-weight: 600; }
+
+        /* Main Button */
+        .btn-primary {
+            width: 100%;
+            background: var(--ios-text);
+            color: #fff;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-primary:hover:not(:disabled) { transform: scale(1.01); background: #000; box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Auto Shuffle Card */
+        .shuffle-card {
+            background: linear-gradient(135deg, var(--ios-blue), #5AC8FA);
+            color: white;
+            padding: 24px;
+            border-radius: var(--radius);
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 113, 227, 0.25);
+        }
+        .shuffle-info h4 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+        .shuffle-info p { margin: 0; font-size: 13px; opacity: 0.9; }
+        
+        .shuffle-controls { display: flex; gap: 10px; }
+        .shuffle-select { 
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; 
+            padding: 8px 12px; border-radius: 10px; font-size: 13px; outline: none; cursor: pointer;
+        }
+        .shuffle-select option { color: #000; }
+        .btn-shuffle {
+            background: white; color: var(--ios-blue); border: none; padding: 8px 20px;
+            border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-shuffle:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+        /* Phone Preview */
+        .phone-bezel {
+            background: #fff;
+            border: 8px solid #2c2c2e;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            height: 520px;
+            max-width: 300px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .phone-screen {
+            background: #F5F5F7;
+            height: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .preview-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+        }
+        .p-badge { background: #FF3B30; color: white; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; display: inline-block; margin-bottom: 12px; }
+        .p-title { font-size: 14px; font-weight: 700; color: #1D1D1F; line-height: 1.4; margin-bottom: 12px; min-height: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .p-old { font-size: 13px; text-decoration: line-through; color: #86868B; }
+        .p-new { font-size: 26px; font-weight: 800; color: #34C759; margin: 4px 0 16px; display: block; }
+        .p-cta { background: #1D1D1F; color: white; width: 100%; padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 600; border: none; }
+        
+        .active-status-card {
+            background: #fff;
+            border-left: 4px solid var(--ios-green);
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Recent Orders Table */
+        .table-section h3 { margin: 0 0 20px; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .table-responsive { overflow-x: auto; }
+        .ios-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        .ios-table th { text-align: left; padding: 14px 20px; color: var(--ios-text-sec); font-size: 11px; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--ios-border); background: #FAFAFA; }
+        .ios-table td { padding: 16px 20px; border-bottom: 1px solid var(--ios-border); font-size: 14px; }
+        .ios-table tr:hover td { background: #F9F9F9; }
+        
+        /* Alerts */
+        .alert-box { padding: 14px; border-radius: 12px; margin-bottom: 24px; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+        .alert-success { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+        .alert-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .header-section { flex-direction: column; align-items: flex-start; }
+            .stats-group { width: 100%; }
+            .stat-card { flex: 1; }
+        }
     </style>
 </head>
-<body class="p-4 md:p-6 text-slate-800">
+<body>
 
-<div class="max-w-7xl mx-auto">
+<div class="ios-container">
     
-    <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <div class="text-center md:text-left">
-            <h1 class="text-3xl font-extrabold text-slate-800">⚡ Flash Manager <span class="text-indigo-600">v14</span></h1>
-            <p class="text-slate-500 font-medium text-sm">Clean Text • Live Rates • Full Control</p>
+    <div class="header-section">
+        <div class="page-title">
+            <h1>Flash Manager</h1>
+            <p>Clean Text • Live Rates • Full Control</p>
         </div>
-        <div class="grid grid-cols-2 gap-3 w-full md:w-auto">
-            <div class="g-card px-5 py-3 text-center bg-white">
-                <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Revenue</span>
-                <span class="text-xl font-black text-green-600">Rs <?= number_format($stats['rev']) ?></span>
+        <div class="stats-group">
+            <div class="stat-card">
+                <span class="stat-label">Total Revenue</span>
+                <span class="stat-val green">Rs <?= number_format($stats['rev']) ?></span>
             </div>
-            <div class="g-card px-5 py-3 text-center bg-white">
-                <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orders</span>
-                <span class="text-xl font-black text-indigo-600"><?= number_format($stats['sold']) ?></span>
+            <div class="stat-card">
+                <span class="stat-label">Orders</span>
+                <span class="stat-val indigo"><?= number_format($stats['sold']) ?></span>
             </div>
         </div>
     </div>
 
     <?php if($success_msg): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-800 p-3 rounded-r-lg mb-6 shadow-sm flex items-center gap-2 text-sm font-semibold">
-            <i class="fa-solid fa-check-circle text-lg"></i> <div><?= $success_msg ?></div>
-        </div>
+        <div class="alert-box alert-success"><i class="fa-solid fa-check-circle"></i> <?= $success_msg ?></div>
     <?php endif; ?>
     <?php if($error_msg): ?>
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-3 rounded-r-lg mb-6 shadow-sm flex items-center gap-2 text-sm font-semibold">
-            <i class="fa-solid fa-triangle-exclamation text-lg"></i> <div><?= $error_msg ?></div>
-        </div>
+        <div class="alert-box alert-error"><i class="fa-solid fa-triangle-exclamation"></i> <?= $error_msg ?></div>
     <?php endif; ?>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="main-grid">
         
-        <div class="lg:col-span-8 space-y-6">
-            
-            <div class="g-card p-6 relative">
-                <div class="flex items-center gap-3 mb-5 border-b border-slate-100 pb-3">
-                    <div class="bg-indigo-600 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-200">
-                        <i class="fa-solid fa-sliders"></i>
-                    </div>
-                    <h3 class="font-bold text-lg text-slate-800">Create Deal</h3>
+        <div>
+            <div class="ios-card">
+                <div class="card-header">
+                    <div class="icon-box"><i class="fa-solid fa-sliders"></i></div>
+                    <h3 class="card-title">Create Deal</h3>
                 </div>
                 
                 <form method="POST">
                     <input type="hidden" name="set_by_selection" value="1">
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500 uppercase ml-1 block">Category</label>
-                            <select id="catSelect" onchange="loadServices()" class="input-box cursor-pointer">
-                                <option value="">-- Choose Category --</option>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="label">Category</label>
+                            <select id="catSelect" onchange="loadServices()" class="ios-select">
+                                <option value="">-- Select --</option>
                                 <?php foreach($cats as $c) echo "<option value='".htmlspecialchars(clean_text($c))."'>".clean_text($c)."</option>"; ?>
                             </select>
                         </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500 uppercase ml-1 block">Service (With Rates)</label>
-                            <select name="selected_item_id" id="itemSelect" class="input-box disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer" onchange="updatePreview()" disabled>
+                        <div class="form-group">
+                            <label class="label">Service</label>
+                            <select name="selected_item_id" id="itemSelect" class="ios-select" onchange="updatePreview()" disabled>
                                 <option value="">-- Choose Category First --</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500 uppercase ml-1 block"><i class="fa-regular fa-clock"></i> Duration</label>
-                            <select name="duration" class="input-box cursor-pointer">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="label">Duration</label>
+                            <select name="duration" class="ios-select">
                                 <?php for($i=1; $i<=24; $i++): ?>
                                     <option value="<?= $i ?>" <?= ($i==24)?'selected':'' ?>><?= $i ?> Hour<?= ($i>1)?'s':'' ?></option>
                                 <?php endfor; ?>
                                 <option value="48">48 Hours</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500 uppercase ml-1 block"><i class="fa-solid fa-percent"></i> Discount %</label>
-                            <input type="number" name="discount_percent" id="discInput" class="input-box" placeholder="e.g. 30" min="1" max="90" oninput="updatePreview()">
+                        <div class="form-group">
+                            <label class="label">Discount %</label>
+                            <input type="number" name="discount_percent" id="discInput" class="ios-input" placeholder="e.g. 30" min="1" max="90" oninput="updatePreview()">
                         </div>
                     </div>
 
-                    <div id="profitBox" class="hidden mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex justify-between items-center">
+                    <div id="profitBox" class="profit-box">
                         <div>
-                            <span class="text-[10px] font-bold text-emerald-600 uppercase">Net Profit / 1k</span>
-                            <div class="text-emerald-800 font-bold text-lg" id="profitVal">Rs 0.00</div>
+                            <span class="label">Net Profit / 1k</span>
+                            <div class="profit-val" id="profitVal">Rs 0.00</div>
                         </div>
-                        <div class="text-right">
-                            <span class="text-[10px] font-bold text-emerald-600 uppercase">Provider Cost</span>
-                            <div class="text-slate-600 font-bold text-sm" id="costVal">Rs 0.00</div>
+                        <div style="text-align: right;">
+                            <span class="label">Provider Cost</span>
+                            <div class="cost-val" id="costVal">Rs 0.00</div>
                         </div>
                     </div>
 
-                    <button type="submit" id="btnActivate" class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition flex justify-center items-center gap-2 opacity-50 cursor-not-allowed shadow-lg" disabled>
-                        Launch Deal Now <i class="fa-solid fa-rocket text-yellow-400"></i>
+                    <button type="submit" id="btnActivate" class="btn-primary" disabled>
+                        Launch Deal <i class="fa-solid fa-rocket"></i>
                     </button>
                 </form>
             </div>
 
-            <div class="g-card p-5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg shadow-indigo-200">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div class="text-center md:text-left">
-                        <h4 class="font-bold text-base"><i class="fa-solid fa-robot mr-2"></i> Auto-Shuffle</h4>
-                        <p class="text-xs text-blue-100 opacity-80">Cycle any random profitable service.</p>
-                    </div>
-                    <form method="POST" class="flex gap-2 items-center">
-                        <select name="duration" class="bg-white/20 border border-white/30 text-white text-xs rounded-lg p-2 outline-none cursor-pointer">
-                            <?php for($i=1; $i<=24; $i++): ?>
-                                <option value="<?= $i ?>" class="text-slate-800" <?= ($i==24)?'selected':'' ?>><?= $i ?>H</option>
-                            <?php endfor; ?>
-                        </select>
-                        <button type="submit" name="switch_random" class="bg-white text-indigo-700 font-bold py-2 px-6 rounded-lg hover:bg-blue-50 transition shadow-lg flex justify-center items-center gap-2">
-                            <i class="fa-solid fa-shuffle"></i> Go
-                        </button>
-                    </form>
+            <div class="shuffle-card">
+                <div class="shuffle-info">
+                    <h4><i class="fa-solid fa-robot"></i> Auto-Shuffle</h4>
+                    <p>Cycle a random profitable service.</p>
                 </div>
+                <form method="POST" class="shuffle-controls">
+                    <select name="duration" class="shuffle-select">
+                        <?php for($i=1; $i<=24; $i++): ?>
+                            <option value="<?= $i ?>" <?= ($i==24)?'selected':'' ?>><?= $i ?>H</option>
+                        <?php endfor; ?>
+                    </select>
+                    <button type="submit" name="switch_random" class="btn-shuffle">Go</button>
+                </form>
             </div>
-
         </div>
 
-        <div class="lg:col-span-4 space-y-6">
+        <div>
+            <div style="text-align:center; margin-bottom:15px;">
+                <span class="label">Live Mobile View</span>
+            </div>
             
-            <div>
-                <h4 class="text-xs font-bold text-slate-400 uppercase mb-3 text-center tracking-widest">Live Mobile View</h4>
-                <div class="preview-phone">
-                    <div class="p-screen">
-                        <div class="text-center mb-4 opacity-30 text-[10px]">
-                            <i class="fa-solid fa-signal"></i> <span>SubHub</span> <i class="fa-solid fa-battery-full"></i>
-                        </div>
-                        
-                        <div class="p-deal-card">
-                            <div class="p-badge">⚡ Flash Deal</div>
-                            <div class="p-title" id="pTitle">Select a service...</div>
-                            <div class="p-price-box">
-                                <span class="p-old" id="pOld">Rs ---</span><br>
-                                <span class="p-price" id="pPrice">Rs 0.00</span>
-                            </div>
-                            <button class="p-btn">Claim Deal <i class="fa-solid fa-arrow-right ml-1"></i></button>
-                        </div>
+            <div class="phone-bezel">
+                <div class="phone-screen">
+                    <div style="text-align:center; opacity:0.3; margin-bottom:20px; font-size:10px;">
+                        <i class="fa-solid fa-signal"></i> 5G <i class="fa-solid fa-battery-full ml-2"></i>
+                    </div>
+                    
+                    <div class="preview-card">
+                        <span class="p-badge">⚡ Flash Deal</span>
+                        <div class="p-title" id="pTitle">Select a service...</div>
+                        <div class="p-old" id="pOld">Rs ---</div>
+                        <div class="p-new" id="pPrice">Rs 0.00</div>
+                        <button class="p-cta">Claim Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
 
-                        <div class="mt-4 text-center">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Applied Discount</p>
-                            <span class="text-2xl font-black text-slate-800" id="pDisc">0%</span>
-                        </div>
+                    <div style="text-align:center; margin-top:20px;">
+                        <span class="label">Discount</span>
+                        <div style="font-size:24px; font-weight:800; color:#1D1D1F;" id="pDisc">0%</div>
                     </div>
                 </div>
             </div>
 
-            <div class="g-card p-4 border-l-4 border-green-500">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">Currently Active</p>
-                        <h4 class="font-bold text-sm text-slate-800 truncate w-32 md:w-40">
-                            <?= clean_text($active['item_name'] ?? 'None') ?>
-                        </h4>
+            <div class="active-status-card">
+                <div>
+                    <span class="label">Active Now</span>
+                    <div style="font-weight:700; font-size:14px; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        <?= clean_text($active['item_name'] ?? 'None') ?>
                     </div>
-                    <div class="text-right">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">Ends In</p>
-                        <span class="font-mono font-bold text-indigo-600 text-sm">
-                            <?= $active ? date("H:i", strtotime($active['end_time'])) : '--:--' ?>
-                        </span>
+                </div>
+                <div style="text-align:right;">
+                    <span class="label">Ends In</span>
+                    <div style="font-weight:700; font-family:'SF Mono', monospace; color:var(--ios-blue);">
+                        <?= $active ? date("H:i", strtotime($active['end_time'])) : '--:--' ?>
                     </div>
                 </div>
             </div>
-
         </div>
 
     </div>
 
-    <div class="g-card mt-8 overflow-hidden">
-        <div class="bg-slate-50 px-5 py-3 border-b border-slate-200 font-bold text-slate-700 text-sm">
-            <i class="fa-solid fa-list mr-2 text-indigo-500"></i> Recent SMM Orders
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-                <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+    <div class="ios-card table-section">
+        <h3><i class="fa-solid fa-list text-blue-500"></i> Recent SMM Orders</h3>
+        <div class="table-responsive">
+            <table class="ios-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3">User</th>
-                        <th class="px-4 py-3">Service</th>
-                        <th class="px-4 py-3">Paid</th>
-                        <th class="px-4 py-3 text-right">Time</th>
+                        <th>User</th>
+                        <th>Service</th>
+                        <th>Paid</th>
+                        <th style="text-align:right;">Time</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 text-xs md:text-sm">
+                <tbody>
                     <?php foreach($logs as $log): ?>
-                    <tr class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-bold"><?= clean_text($log['u_name']) ?></td>
-                        <td class="px-4 py-3 text-slate-600 truncate max-w-[120px]">
-                            <?= clean_text($log['item_name']) ?>
+                    <tr>
+                        <td style="font-weight:600;"><?= clean_text($log['u_name']) ?></td>
+                        <td>
+                            <div style="max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ios-text-sec);">
+                                <?= clean_text($log['item_name']) ?>
+                            </div>
                         </td>
-                        <td class="px-4 py-3 font-bold text-green-600">Rs <?= (float)$log['amount_paid'] ?></td>
-                        <td class="px-4 py-3 text-right text-slate-400 font-mono"><?= date("d M, H:i", strtotime($log['created_at'])) ?></td>
+                        <td style="color:var(--ios-green); font-weight:700;">Rs <?= (float)$log['amount_paid'] ?></td>
+                        <td style="text-align:right; font-family:'SF Mono', monospace; color:var(--ios-text-sec);"><?= date("d M, H:i", strtotime($log['created_at'])) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -382,15 +632,13 @@ $logs = $db->query("
         itemSelect.innerHTML = '<option value="">-- Select Service --</option>';
         itemSelect.disabled = true;
         btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
         
         if (cat && smmData[cat]) {
             itemSelect.disabled = false;
             smmData[cat].forEach(svc => {
                 let opt = document.createElement('option');
                 opt.value = svc.id;
-                // Clean text for options is handled in PHP, here we just display
-                opt.innerText = `[${svc.id}] ${svc.name} (Cost: ${svc.cost} | Sell: ${svc.price})`;
+                opt.innerText = `[${svc.id}] ${svc.name}`;
                 
                 opt.setAttribute('data-name', svc.name);
                 opt.setAttribute('data-price', svc.price);
@@ -410,8 +658,7 @@ $logs = $db->query("
         
         if (select.value) {
             btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            profitBox.classList.remove('hidden');
+            profitBox.classList.add('visible');
             
             const opt = select.options[select.selectedIndex];
             const name = opt.getAttribute('data-name');
@@ -424,7 +671,7 @@ $logs = $db->query("
             let newPrice = sellPrice - (sellPrice * (discPercent / 100));
             
             if(newPrice < (costPrice * 1.05)) {
-               // Safety visual only
+               // Logic handled in PHP, visual cue only
             }
 
             let profit = newPrice - costPrice;
@@ -438,9 +685,9 @@ $logs = $db->query("
             document.getElementById('costVal').innerText = 'Rs ' + costPrice.toFixed(2);
             
             if(profit > 0) {
-                document.getElementById('profitVal').className = "text-emerald-800 font-bold text-lg";
+                document.getElementById('profitVal').style.color = "#166534";
             } else {
-                document.getElementById('profitVal').className = "text-red-600 font-bold text-lg";
+                document.getElementById('profitVal').style.color = "#DC2626";
             }
 
         } else {
@@ -449,7 +696,7 @@ $logs = $db->query("
             document.getElementById('pPrice').innerText = 'Rs 0.00';
             document.getElementById('pOld').innerText = 'Rs ---';
             document.getElementById('pDisc').innerText = '0%';
-            profitBox.classList.add('hidden');
+            profitBox.classList.remove('visible');
         }
     }
 </script>
