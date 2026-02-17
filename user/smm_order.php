@@ -18,6 +18,27 @@ if ($curr_code != 'PKR') {
 $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
 $site_name = $GLOBALS['settings']['site_name'] ?? 'SubHub';
 
+// --- 2. DYNAMIC FILTER RULES ---
+$filter_rules = [
+    'high_quality' => 'hq, vip, premium, high quality, real, active',
+    'instant'      => 'instant, fast, speed, auto',
+    'non_drop'     => 'non-drop, nondrop, stable, guarantee, refill',
+    'refill'       => ', r30, r60, r90, r365, lifetime', 
+    'no_refill'    => 'no refill, no-refill'
+];
+
+try {
+    $stmt_rules = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'smm_filter_keywords'");
+    $stmt_rules->execute();
+    $db_rules_json = $stmt_rules->fetchColumn();
+    if ($db_rules_json) {
+        $db_rules = json_decode($db_rules_json, true);
+        if(is_array($db_rules)) {
+            $filter_rules = array_merge($filter_rules, $db_rules);
+        }
+    }
+} catch (Exception $e) {}
+
 // --- DATA FETCHING ---
 try {
     // 1. Fetch Dynamic Sub-Categories
@@ -94,26 +115,25 @@ try {
             ];
         }
         
-        // Data for JS
         $is_comment = (stripos($s['name'], 'Comment') !== false || stripos($s['category'], 'Comment') !== false);
         $has_drip = (isset($s['dripfeed']) && $s['dripfeed'] == 1) ? 1 : 0;
         
         $services_json[$s['id']] = [
-            'id'     => $s['id'],
-            'rate'   => (float)$s['service_rate'], 
-            'min'    => (int)$s['min'],
-            'max'    => (int)$s['max'],
-            'avg'    => formatSmmAvgTime($s['avg_time']),
-            'avg_raw' => (int)$s['avg_time'], // Raw minutes for calculations
+            'id'      => $s['id'],
+            'rate'    => (float)$s['service_rate'], 
+            'min'     => (int)$s['min'],
+            'max'     => (int)$s['max'],
+            'avg'     => formatSmmAvgTime($s['avg_time']),
+            'avg_raw' => (int)$s['avg_time'], 
             'refill' => (bool)$s['has_refill'],
             'cancel' => (bool)$s['has_cancel'],
-            'drip'   => $has_drip,
-            'type'   => $s['service_type'] ?? 'Default',
-            'name'   => sanitize($s['name']),
-            'cat'    => sanitize($full_cat),
-            'desc'   => nl2br($s['description'] ?? 'No details.'),
+            'drip'    => $has_drip,
+            'type'    => $s['service_type'] ?? 'Default',
+            'name'    => sanitize($s['name']),
+            'cat'     => sanitize($full_cat),
+            'desc'    => nl2br($s['description'] ?? 'No details.'),
             'is_comment' => $is_comment,
-            'app'    => $app_name
+            'app'     => $app_name
         ];
     }
     ksort($grouped_apps);
@@ -121,365 +141,359 @@ try {
 } catch (Exception $e) { $error = $e->getMessage(); }
 ?>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
 
-<script>
-    window.currConfig = { code: "<?=$curr_code?>", rate: <?=$curr_rate?>, sym: "<?=$curr_symbol?>" };
-    window.svcData = <?= json_encode($services_json) ?>;
-    window.appsData = <?= json_encode($grouped_apps) ?>;
-    window.mainIcons = <?= json_encode($main_app_icons) ?>;
-</script>
+    <script>
+        window.currConfig = { code: "<?=$curr_code?>", rate: <?=$curr_rate?>, sym: "<?=$curr_symbol?>" };
+        window.svcData = <?= json_encode($services_json) ?>;
+        window.appsData = <?= json_encode($grouped_apps) ?>;
+        window.mainIcons = <?= json_encode($main_app_icons) ?>;
+        window.filterRules = <?= json_encode($filter_rules) ?>; 
+    </script>
 
-<style>
-/* --- VARIABLES --- */
-:root {
-    --primary: #8b5cf6; 
-    --primary-dark: #6d28d9;
-    --primary-glow: rgba(139, 92, 246, 0.4);
-    --glass-bg: rgba(255, 255, 255, 0.9);
-    --text-main: #1e293b;
-    --text-sub: #64748b;
-    --font: 'Plus Jakarta Sans', sans-serif;
-}
+    <style>
+    /* ---  APPLE DESIGN SYSTEM VARIABLES --- */
+    :root {
+        --ios-bg: #F2F2F7;         
+        --ios-card: #FFFFFF;
+        --ios-text: #000000;
+        --ios-text-secondary: #8E8E93;
+        --ios-blue: #007AFF;
+        --ios-purple: #5856D6;
+        --ios-green: #34C759;
+        --ios-red: #FF3B30;
+        
+        --glass-bg: rgba(255, 255, 255, 0.75);
+        --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+        --shadow-lg: 0 20px 40px -10px rgba(0,0,0,0.15);
+        
+        --radius-m: 16px;
+        --radius-l: 24px;
+        --radius-xl: 32px;
+        
+        --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-body {
-    margin: 0; padding: 0;
-    font-family: var(--font);
-    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-    background-size: 400% 400%;
-    animation: gradientBG 15s ease infinite;
-    min-height: 100vh;
-    color: var(--text-main);
-    overflow-x: hidden;
-    position: relative;
-}
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+    
+    body {
+        margin: 0; padding: 0;
+        font-family: var(--font-stack);
+        background-color: var(--ios-bg);
+        color: var(--ios-text);
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+        width: 100%;
+        padding-bottom: 80px; /* Space for footer */
+    }
 
-@keyframes gradientBG {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
+    /* SCROLLBAR HIDING */
+    ::-webkit-scrollbar { width: 0px; background: transparent; }
 
-/* --- FLOATING BACKGROUND ICONS ANIMATION --- */
-.bg-animation {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: -1; overflow: hidden; pointer-events: none;
-}
-.bg-icon {
-    position: absolute; bottom: -50px;
-    font-size: 2rem; color: rgba(255, 255, 255, 0.15);
-    animation: floatUp 10s linear infinite;
-}
-@keyframes floatUp {
-    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-    10% { opacity: 0.4; }
-    90% { opacity: 0.4; }
-    100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
-}
+    .app-wrapper {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        width: 100%;
+    }
 
-/* --- LAYOUT --- */
-.app-wrapper { max-width: 800px; margin: 20px auto; padding: 20px; position: relative; z-index: 1; }
+    /* --- SEARCH BAR --- */
+    .search-box { 
+        position: relative; margin-bottom: 24px; width: 100%; 
+        transition: transform 0.2s ease;
+    }
+    .search-box input {
+        width: 100%; padding: 12px 20px 12px 42px;
+        background: rgba(118, 118, 128, 0.12);
+        border: none; border-radius: 12px;
+        font-size: 17px; color: var(--ios-text); 
+        backdrop-filter: blur(10px);
+    }
+    .search-box input:focus { background: #FFFFFF; box-shadow: 0 0 0 2px var(--ios-blue); }
+    .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--ios-text-secondary); font-size: 16px; }
 
-.glass-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.6);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
-    padding: 20px;
-    margin-bottom: 20px;
-}
+    /* --- VIEW TRANSITIONS --- */
+    .view-section { display: none; opacity: 0; transform: scale(0.98); transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .view-section.active { display: block; opacity: 1; transform: scale(1); }
 
-.search-box { position: relative; margin-bottom: 25px; }
-.search-box input {
-    width: 100%; padding: 18px 25px 18px 55px; border-radius: 20px; border: none;
-    background: rgba(255, 255, 255, 0.95); box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    font-size: 1.1rem; font-family: var(--font); transition: 0.3s;
-}
-.search-box input:focus { transform: scale(1.02); box-shadow: 0 15px 35px rgba(0,0,0,0.2); outline: none; }
-.search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; color: var(--primary); }
+    h3 { 
+        font-size: 22px; font-weight: 700; margin: 0 0 16px 0; 
+        color: var(--ios-text); display:flex; align-items:center; 
+    }
 
-.view-section { display: none; animation: fadeInUp 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) forwards; }
-.view-section.active { display: block; }
+    /* --- APP GRID --- */
+    .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 20px 12px; }
+    .app-card {
+        background: transparent;
+        display: flex; flex-direction: column; align-items: center;
+        cursor: pointer; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        padding: 5px;
+    }
+    .app-card:hover { transform: translateY(-3px); }
+    .app-icon-wrap {
+        width: 64px; height: 64px; border-radius: 16px;
+        background: var(--ios-card);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: 8px; overflow: hidden;
+    }
+    .app-card img { width: 100%; height: 100%; object-fit: cover; }
+    .app-name { font-size: 12px; font-weight: 500; color: var(--ios-text); text-align: center; }
 
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    /* --- NAVIGATION HEADER (Aligned) --- */
+    .nav-header { 
+        display: flex; align-items: center; gap: 12px; margin-bottom: 20px; 
+    }
+    .back-btn {
+        width: 36px; height: 36px; border-radius: 50%; 
+        background: rgba(118, 118, 128, 0.12); border: none; color: var(--ios-blue); 
+        font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; 
+        backdrop-filter: blur(5px);
+        flex-shrink: 0;
+    }
+    .nav-app-icon {
+        width: 32px; height: 32px; border-radius: 8px; object-fit: cover;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .nav-title {
+        font-size: 20px; font-weight: 700; color: var(--ios-text);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
-.grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
-.app-card {
-    background: rgba(255,255,255,0.85); border-radius: 18px; padding: 15px 5px;
-    text-align: center; cursor: pointer; transition: all 0.3s;
-    border: 1px solid rgba(255,255,255,0.5); position: relative; overflow: hidden;
-}
-.app-card:hover { background: white; transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-color: var(--primary); }
-.app-card img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
-.app-name { font-weight: 700; font-size: 0.85rem; display: block; color: black; }
+    /* --- SUB-CATEGORY --- */
+    .big-white-box {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 16px; padding-bottom: 20px;
+    }
+    .ios-img-btn { 
+        width: 100%; border-radius: var(--radius-m); cursor: pointer; 
+        box-shadow: var(--shadow-sm); transition: transform 0.2s, box-shadow 0.2s; background: #fff;
+    }
 
-.filter-wrapper { 
-    overflow-x: auto; white-space: normal; padding-bottom: 10px; margin-bottom: 15px; 
-    scrollbar-width: none; -ms-overflow-style: none;
-    display: flex; align-items: center; gap: 8px;
-}
-.filter-wrapper::-webkit-scrollbar { display: none; }
+    /* --- FILTERS (BIGGER & AUTO SCROLL) --- */
+    .filter-wrapper {
+        display: flex; gap: 12px; overflow-x: auto; padding: 4px 4px 20px 4px;
+        -webkit-overflow-scrolling: touch; align-items: center;
+        scrollbar-width: none; /* Firefox */
+    }
+    .filter-wrapper::-webkit-scrollbar { display: none; }
+    
+    .filter-btn {
+        height: 52px; width: auto; cursor: pointer; 
+        transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+        opacity: 0.7; filter: grayscale(100%); border-radius: 16px; flex-shrink: 0;
+    }
+    .filter-btn:hover, .filter-btn.active { 
+        opacity: 1; transform: scale(1.1); filter: grayscale(0%); 
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
+    }
 
-.filter-btn { height: 50px; width: auto; cursor: pointer; transition: 0.2s; border-radius: 8px; opacity: 0.9; }
-.filter-btn:hover { transform: translateY(-2px); opacity: 1; }
-.filter-btn.active { transform: scale(1.05); opacity: 1; }
+    /* --- SERVICE LIST --- */
+    #service-list-container { display: flex; flex-direction: column; gap: 12px; }
+    .svc-item {
+        background: var(--ios-card); border-radius: var(--radius-m); padding: 16px;
+        cursor: pointer; box-shadow: var(--shadow-sm); 
+        transition: transform 0.2s;
+    }
+    .svc-item:active { transform: scale(0.98); }
+    .svc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .svc-title { font-size: 15px; font-weight: 600; color: var(--ios-text); line-height: 1.4; flex: 1; }
+    .svc-price {
+        background: rgba(0, 122, 255, 0.1); color: var(--ios-blue); 
+        padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap;
+    }
+    .svc-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .tag {
+        font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px;
+        display: inline-flex; align-items: center; gap: 4px; letter-spacing: 0.02em; text-transform: uppercase;
+    }
+    .tag.green { background: rgba(52, 199, 89, 0.15); color: var(--ios-green); }
+    .tag.red { background: rgba(255, 59, 48, 0.15); color: var(--ios-red); }
+    .tag.blue { background: rgba(0, 122, 255, 0.15); color: var(--ios-blue); }
+    .tag.purple { background: rgba(88, 86, 214, 0.15); color: var(--ios-purple); }
 
-/* --- BIG WHITE BOX SUB-CATS --- */
-.big-white-box {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 24px;
-    padding: 10px 0; 
-    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-    width: 100%;
-    max-width: 420px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0; 
-    border: 1px solid rgba(255,255,255,0.8);
-}
+    /* --- 🚀 MODAL REDESIGN --- */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.3); z-index: 2000;
+        justify-content: center; align-items: center;
+        opacity: 0; transition: opacity 0.3s; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.active { display: flex; opacity: 1; }
 
-.ios-img-btn {
-    width: 100%;
-    max-width: 180px;      
-    height: auto;
-    object-fit: contain;
-    cursor: pointer;
-    margin: 0; 
-    padding: 2px 0;
-    transition: transform 0.2s ease, filter 0.2s;
-    opacity: 0; 
-}
+    .modal-content {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(25px) saturate(180%);
+        width: 92%; max-width: 420px;
+        border-radius: 30px; 
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        display: flex; flex-direction: column;
+        max-height: 92vh; transform: scale(0.9); opacity: 0;
+        transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.3s;
+        overflow: hidden;
+    }
+    .modal-overlay.active .modal-content { transform: scale(1); opacity: 1; }
 
-@keyframes listSlide {
-    0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
+    .modal-header {
+        padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05); background: rgba(255, 255, 255, 0.5);
+    }
+    .modal-header h3 { margin: 0; font-size: 17px; font-weight: 700; }
+    .modal-close {
+        background: rgba(118, 118, 128, 0.12); border: none; 
+        width: 30px; height: 30px; border-radius: 50%; color: var(--ios-text-secondary); 
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
 
-.ios-img-btn:hover {
-    transform: scale(1.03);
-    filter: brightness(1.05);
-    z-index: 2;
-}
+    .modal-body { padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
-.ios-img-btn:active { transform: scale(0.98); }
+    /* 🔥 THEME CORRECTED ETA BOX (iOS Blue) */
+    .eta-box-lavish {
+        background: rgba(0, 122, 255, 0.08); /* Soft Blue */
+        border-radius: 20px; padding: 15px; margin-bottom: 20px;
+        text-align: center; color: var(--ios-text);
+        display: none; 
+        border: 1px solid rgba(0, 122, 255, 0.2);
+        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.1);
+    }
+    .eta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--ios-text-secondary); }
+    .eta-time { font-size: 20px; font-weight: 800; color: var(--ios-blue); margin-top: 4px; display: block; }
+    
+    /* Inputs */
+    .input-group-ios {
+        background: white; border-radius: 18px; padding: 4px 16px; margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .form-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--ios-bg); }
+    .form-row:last-child { border-bottom: none; }
+    .form-label { font-size: 15px; font-weight: 500; width: 80px; flex-shrink: 0; }
+    .form-input-ios { flex: 1; border: none; background: transparent; font-size: 15px; text-align: right; font-weight: 600; color: var(--ios-blue); }
+    
+    .link-wrapper { position: relative; margin-bottom: 16px; }
+    .link-input-box {
+        width: 100%; padding: 16px 16px 16px 44px; background: #FFFFFF; border: none;
+        border-radius: 18px; font-size: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .link-icon { position: absolute; left: 16px; top: 16px; color: var(--ios-text-secondary); }
+    .paste-btn-ios {
+        position: absolute; right: 8px; top: 8px; background: rgba(0, 122, 255, 0.1); 
+        color: var(--ios-blue); font-size: 11px; font-weight: 700; padding: 6px 10px; 
+        border-radius: 10px; border: none; cursor: pointer;
+    }
 
-/* --- SERVICE LIST --- */
-.svc-item {
-    background: white; border-radius: 18px; padding: 18px; margin-bottom: 12px;
-    transition: 0.3s; border-left: 4px solid transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.03); cursor: pointer; border-color: #0B9FF5; 
-}
-.svc-item:hover { transform: scale(1.01); box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left-color: var(--primary); }
-.svc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-.svc-title { font-weight: 700; font-size: 0.95rem; color: var(--text-main); line-height: 1.4; flex:1; margin-right: 10px; }
-.svc-price {
-    background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; padding: 5px 10px;
-    border-radius: 10px; font-weight: 700; font-size: 0.8rem; white-space: nowrap;
-    box-shadow: 0 3px 8px rgba(139, 92, 246, 0.3);
-}
-.svc-tags { display: flex; gap: 6px; font-size: 0.7rem; font-weight: 600; flex-wrap: wrap; }
-.tag { padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: var(--text-sub); display: flex; align-items: center; gap: 4px; }
-.tag.green { background: #dcfce7; color: #166534; }
-.tag.red { background: #fee2e2; color: #991b1b; }
-.tag.blue { background: #dbeafe; color: #1e40af; }
+    /* 🔥 AUTO SCROLLING FIXED DESCRIPTION BOX */
+    .desc-box-scroll {
+        background: rgba(255, 255, 255, 0.5); 
+        border-radius: 18px; 
+        margin-bottom: 16px;
+        padding: 15px;
+        height: 100px; /* Fixed Height */
+        overflow-y: auto; /* Allow manual scroll */
+        position: relative;
+        border: 1px solid rgba(0,0,0,0.05);
+        font-size: 13px; color: var(--ios-text-secondary); line-height: 1.5;
+    }
+    .desc-box-scroll p { margin: 0; }
 
-/* --- NAV HEADER & PURPLE BACK BUTTON --- */
-.nav-header {
-    display: flex; align-items: center; gap: 15px; margin-bottom: 20px;
-    width: 100%;
-}
-.back-btn {
-    width: 42px; height: 42px; border-radius: 50%; border: none;
-    background: linear-gradient(135deg, #8b5cf6, #6d28d9); 
-    color: white; 
-    cursor: pointer;
-    transition: 0.3s; font-size: 1.1rem;
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
-    display: flex; align-items: center; justify-content: center;
-}
-.back-btn:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6); }
+    /* 🔥 FLOATING FOOTER ISLAND (Submit Area) */
+    .modal-footer-island {
+        margin: 0 15px 15px 15px; 
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 24px; 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        display: flex; flex-direction: column; gap: 12px;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    .total-row { display: flex; justify-content: space-between; align-items: center; }
+    .total-label { font-size: 13px; color: var(--ios-text-secondary); font-weight: 600; }
+    .total-value { font-size: 22px; color: var(--ios-text); font-weight: 800; letter-spacing: -0.5px; }
+    
+    .btn-submit-ios {
+        width: 100%; padding: 16px;
+        background: linear-gradient(135deg, #007AFF 0%, #0055ff 100%);
+        color: white; border: none; border-radius: 18px; 
+        font-size: 16px; font-weight: 600;
+        box-shadow: 0 8px 20px rgba(0, 122, 255, 0.25);
+        cursor: pointer; position: relative; overflow: hidden;
+    }
+    .btn-submit-ios:active { transform: scale(0.97); }
 
-/* =========================================
-   --- COMPACT ORDER MODAL WITH LIVE ICONS ---
-   ========================================= */
-.modal-overlay {
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); z-index: 99999;
-    justify-content: center; align-items: center; padding: 15px;
-}
-.modal-overlay.active { display: flex; animation: fadeIn 0.2s ease-out; }
+    /* --- ANIMATED FOOTER SECTION --- */
+    .lavish-footer {
+        text-align: center; padding: 25px; margin-top: 30px;
+        background: rgba(255,255,255,0.4); backdrop-filter: blur(10px);
+        border-radius: 24px 24px 0 0;
+        animation: slideUpFooter 0.8s ease-out;
+    }
+    @keyframes slideUpFooter { from { transform: translateY(50px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+    .footer-brand { font-weight: 800; color: var(--ios-text); font-size: 18px; margin-bottom: 5px; display:block; }
+    .footer-text { font-size: 12px; color: var(--ios-text-secondary); }
 
-.modal-content {
-    background: #fff; width: 100%; max-width: 450px; /* Reduced width */
-    border-radius: 20px;
-    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.2); 
-    overflow: hidden; display: flex; flex-direction: column;
-    max-height: 90vh; animation: zoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.modal-header { 
-    padding: 15px 20px; /* Reduced Padding */
-    background: #f8fafc; border-bottom: 1px solid #f1f5f9; 
-    display: flex; justify-content: space-between; align-items: center; 
-}
-.modal-header h3 { font-size: 1.1rem; font-weight: 800; color: #334155; margin: 0; }
-
-.modal-close { 
-    background: transparent; border: none; width: 30px; height: 30px; 
-    border-radius: 50%; font-size: 1.1rem; cursor: pointer; color: #94a3b8; 
-    display: flex; align-items: center; justify-content: center; transition: 0.2s; 
-}
-.modal-close:hover { background: #fee2e2; color: #ef4444; }
-
-.modal-body { padding: 20px; /* Tighter padding */ overflow-y: auto; }
-
-/* COMPACT LIVE ETA BOX */
-.eta-box {
-    background: linear-gradient(to right, #ecfdf5, #f0fdf4);
-    border: 1px dashed #86efac;
-    color: #15803d;
-    padding: 10px 15px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.eta-icon-wrap {
-    width: 32px; height: 32px; background: white; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #16a34a;
-    position: relative;
-}
-.pulse-dot {
-    width: 8px; height: 8px; background: #22c55e; border-radius: 50%;
-    position: absolute; top: 0; right: 0;
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-    animation: pulse-green 2s infinite;
-}
-@keyframes pulse-green {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-}
-
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
-.stat-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; text-align: center; }
-.stat-box small { display: block; font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-.stat-box b { font-size: 0.85rem; color: #334155; }
-
-/* COMPACT INPUT FIELDS WITH ICONS */
-.form-group { margin-bottom: 12px; } /* Reduced margin */
-.form-label { display: block; font-weight: 700; font-size: 0.8rem; margin-bottom: 5px; color: #475569; }
-
-.input-icon-wrap { position: relative; }
-.input-icon-wrap i { 
-    position: absolute; left: 14px; top: 50%; transform: translateY(-50%); 
-    color: #94a3b8; font-size: 0.9rem; pointer-events: none; 
-}
-
-.form-input { 
-    width: 100%; padding: 12px 12px 12px 40px; /* Left padding for icon */
-    border: 2px solid #f1f5f9; border-radius: 12px; font-size: 0.9rem; 
-    outline: none; transition: 0.2s; background: #fff; font-family: var(--font); color: #334155; 
-}
-.form-input:focus { border-color: var(--primary); background: #fff; }
-
-.paste-btn { 
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%); 
-    background: #eff6ff; color: var(--primary); border: none; 
-    padding: 6px 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer; 
-}
-
-.desc-box { 
-    background: #fefce8; border: 1px dashed #fde047; border-radius: 10px; 
-    font-size: 0.8rem; color: #854d0e; margin-bottom: 15px; padding: 10px; 
-    max-height: 80px; overflow-y: auto; line-height: 1.5; 
-}
-
-.total-charge-area {
-    display: flex; justify-content: space-between; align-items: center;
-    background: #f8fafc; padding: 12px 15px; border-radius: 12px; margin: 10px 0 15px 0; border: 1px solid #e2e8f0;
-}
-
-.btn-submit { 
-    width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
-    color: #fff; font-weight: 800; font-size: 0.95rem; border: none; border-radius: 12px; 
-    cursor: pointer; box-shadow: 0 5px 15px rgba(139, 92, 246, 0.25); transition: 0.2s; 
-}
-.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35); }
-
-@keyframes zoomIn { from { transform:scale(0.95); opacity:0; } to { transform:scale(1); opacity:1; } }
-@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-</style>
-
-<div class="bg-animation">
-    <i class="fa-brands fa-instagram bg-icon" style="left: 10%; animation-duration: 8s;"></i>
-    <i class="fa-brands fa-tiktok bg-icon" style="left: 25%; animation-duration: 12s; font-size: 1.5rem;"></i>
-    <i class="fa-brands fa-youtube bg-icon" style="left: 40%; animation-duration: 10s;"></i>
-    <i class="fa-brands fa-facebook bg-icon" style="left: 60%; animation-duration: 14s; font-size: 2.2rem;"></i>
-    <i class="fa-brands fa-spotify bg-icon" style="left: 75%; animation-duration: 9s;"></i>
-    <i class="fa-brands fa-twitter bg-icon" style="left: 90%; animation-duration: 11s;"></i>
-</div>
+    /* Mobile */
+    @media (max-width: 480px) {
+        .modal-overlay { align-items: flex-end; padding: 0; }
+        .modal-content {
+            width: 100%; max-width: 100%; border-radius: 32px 32px 0 0;
+            max-height: 90vh; transform: translateY(100%);
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .grid-container { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .app-icon-wrap { width: 56px; height: 56px; }
+    }
+    </style>
+</head>
+<body>
 
 <div class="app-wrapper">
 
     <div class="search-box">
         <i class="fa fa-search search-icon"></i>
-        <input type="text" id="global-search" placeholder="Search services (e.g. Likes, Views...)">
+        <input type="text" id="global-search" placeholder="Search services...">
     </div>
 
     <div id="view-home" class="view-section active">
-        <h3 style="color:white; text-shadow:0 2px 4px rgba(0,0,0,0.2); margin-bottom:15px; font-weight:800;">
-            <i class="fa fa-icons"></i> Select Platform
-        </h3>
-        <div class="glass-panel">
-            <div class="grid-container">
-                <?php foreach($grouped_apps as $appName => $data): 
-                    $icon = 'smm.png';
-                    if(isset($main_app_icons[$appName])) {
-                        $icon = $main_app_icons[$appName];
-                    }
-                ?>
-                <div class="app-card" onclick="goToApp('<?= $appName ?>')" data-tilt>
+        <h3>Apps</h3>
+        <div class="grid-container">
+            <?php foreach($grouped_apps as $appName => $data): 
+                $icon = 'smm.png';
+                if(isset($main_app_icons[$appName])) $icon = $main_app_icons[$appName];
+            ?>
+            <div class="app-card" onclick="goToApp('<?= $appName ?>', '../assets/img/icons/<?= $icon ?>')">
+                <div class="app-icon-wrap">
                     <img src="../assets/img/icons/<?= $icon ?>" onerror="this.src='../assets/img/icons/smm.png'">
-                    <span class="app-name"><?= $appName ?></span>
                 </div>
-                <?php endforeach; ?>
+                <span class="app-name"><?= $appName ?></span>
             </div>
+            <?php endforeach; ?>
         </div>
     </div>
 
     <div id="view-subcats" class="view-section">
         <div class="nav-header">
-            <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
-            <h3 style="margin:0; font-size:1.3rem; color:white; font-weight:800; text-shadow: 0 2px 10px rgba(0,0,0,0.2);" id="subcat-title">App Name</h3>
+            <button class="back-btn" onclick="goBack()"><i class="fa fa-chevron-left"></i></button>
+            <img id="subcat-app-icon" src="" class="nav-app-icon" style="display:none;">
+            <span id="subcat-title" class="nav-title">App Name</span>
         </div>
-        
-        <h4 style="color:white; margin-bottom:15px; font-weight:700; text-align:center; text-shadow:0 1px 2px rgba(0,0,0,0.1);">Select Category</h4>
-        
-        <div class="big-white-box" id="subcat-image-container">
-            </div>
+        <div class="big-white-box" id="subcat-image-container"></div>
     </div>
 
     <div id="view-services" class="view-section">
-        <div class="nav-header" style="margin-bottom:15px;">
-            <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
-            <div>
-                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;" id="svc-list-title">Category</h3>
-                <span style="font-size:0.8rem; color: rgba(255,255,255,0.9);">Select a package</span>
-            </div>
+        <div class="nav-header">
+            <button class="back-btn" onclick="goBack()"><i class="fa fa-chevron-left"></i></button>
+            <img id="svc-app-icon" src="" class="nav-app-icon" style="display:none;">
+            <span id="svc-list-title" class="nav-title">Category</span>
         </div>
 
-        <div class="filter-wrapper">
+        <div class="filter-wrapper" id="filter-container">
             <img src="../assets/img/icons/Cheapest.png" class="filter-btn" onclick="applyFilter(this, 'cheapest')">
             <img src="../assets/img/icons/High.png" class="filter-btn" onclick="applyFilter(this, 'high_rate')">
             <img src="../assets/img/icons/Hq.png" class="filter-btn" onclick="applyFilter(this, 'high_quality')">
@@ -490,10 +504,15 @@ body {
         </div>
         
         <div id="service-list-container"></div>
-        <div id="no-services-msg" style="display:none; text-align:center; color:white; margin-top:30px;">
-            <i class="fa fa-box-open" style="font-size:2rem; opacity:0.7;"></i>
-            <p>No services found.</p>
+        <div id="no-services-msg" style="display:none; text-align:center; padding:40px; color:var(--ios-text-secondary);">
+            <i class="fa fa-box-open" style="font-size:32px; margin-bottom:10px; opacity:0.3;"></i>
+            <p>No services found here.</p>
         </div>
+    </div>
+
+    <div class="lavish-footer">
+        <span class="footer-brand">⚡ <?= $site_name ?></span>
+        <span class="footer-text">Premium SMM Services • Instant Delivery</span>
     </div>
 
 </div>
@@ -501,74 +520,69 @@ body {
 <div class="modal-overlay" id="order-modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3><i class="fa-solid fa-cart-shopping" style="color:var(--primary); margin-right:8px;"></i> New Order</h3>
+            <h3>New Order</h3>
             <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
+
         <div class="modal-body">
             
-            <div class="eta-box" id="eta-container" style="display:none;">
-                <div class="eta-icon-wrap">
-                    <i class="fa-regular fa-clock"></i>
-                    <div class="pulse-dot"></div>
-                </div>
-                <div>
-                    <span style="font-size:0.7rem; display:block; opacity:0.8; font-weight:700;">ESTIMATED COMPLETION</span>
-                    <span id="eta-text" style="font-size:0.95rem; font-weight:700;">Calculating...</span>
-                </div>
+            <div class="eta-box-lavish" id="eta-container">
+                <div class="eta-label">Expected Completion</div>
+                <div class="eta-time" id="eta-text">Calculating...</div>
             </div>
 
-            <div id="m-stats" class="stats-grid"></div>
-            <div id="m-desc" class="desc-box"></div>
+            <div class="desc-box-scroll" id="m-desc-box">
+                <p id="m-desc">Description text...</p>
+            </div>
             
             <form action="smm_order_action.php" method="POST" id="order-form">
                 <input type="hidden" name="service_id" id="m-id">
                 
-                <div class="form-group">
-                    <label class="form-label">Link / Username</label>
-                    <div class="input-icon-wrap">
-                        <i class="fa-solid fa-link"></i>
-                        <input type="text" name="link" id="m-link" class="form-input" style="padding-right:70px;" placeholder="https://..." required>
-                        <button type="button" class="paste-btn" onclick="pasteLink()">PASTE</button>
-                    </div>
+                <div class="link-wrapper">
+                    <i class="fa-solid fa-link link-icon"></i>
+                    <input type="text" name="link" id="m-link" class="link-input-box" placeholder="https://link.com" required>
+                    <button type="button" class="paste-btn-ios" onclick="pasteLink()">PASTE</button>
                 </div>
                 
-                <div id="grp-qty" class="form-group">
-                    <div style="display:flex; justify-content:space-between;">
+                <div class="input-group-ios">
+                    <div id="grp-qty" class="form-row">
                         <label class="form-label">Quantity</label>
-                        <small id="min-max" style="font-size:0.7rem; color:var(--primary); font-weight:600;"></small>
+                        <input type="number" name="quantity" id="m-qty" class="form-input-ios" placeholder="0" required>
                     </div>
-                    <div class="input-icon-wrap">
-                        <i class="fa-solid fa-hashtag"></i>
-                        <input type="number" name="quantity" id="m-qty" class="form-input" placeholder="e.g. 1000" required>
-                    </div>
-                </div>
-
-                <div id="grp-com" class="form-group" style="display:none">
-                    <label class="form-label">Comments (1 per line)</label>
-                    <div class="input-icon-wrap">
-                        <i class="fa-regular fa-comment-dots" style="top:20px;"></i>
-                        <textarea name="comments" id="m-com" class="form-input" rows="3" style="padding-left:40px; height:auto;" placeholder="Nice post!"></textarea>
+                    <div class="form-row" style="justify-content:space-between; padding:6px 0;">
+                        <span style="font-size:11px; color:var(--ios-text-secondary);">Limits</span>
+                        <span id="min-max" style="font-size:11px; color:var(--ios-blue); font-weight:600;"></span>
                     </div>
                 </div>
 
-                <div class="total-charge-area">
-                    <span style="color:#64748b; font-weight:600; font-size:0.9rem;">Total Charge</span>
-                    <span id="m-total" style="color:var(--primary); font-size:1.2rem; font-weight:800;">0.00</span>
+                <div id="grp-com" class="input-group-ios" style="display:none; margin-top:10px;">
+                    <textarea name="comments" id="m-com" class="form-input-ios" rows="3" style="text-align:left; width:100%; resize:none;" placeholder="Enter comments (1 per line)"></textarea>
                 </div>
 
-                <button type="submit" class="btn-submit">CONFIRM ORDER <i class="fa-solid fa-arrow-right" style="margin-left:5px;"></i></button>
             </form>
+        </div>
+
+        <div class="modal-footer-island">
+            <div class="total-row">
+                <span class="total-label">Total Amount</span>
+                <span id="m-total" class="total-value">0.00</span>
+            </div>
+            <button type="button" class="btn-submit-ios" onclick="submitOrder()">Place Order</button>
         </div>
     </div>
 </div>
 
+<?php include '_smm_footer.php'; ?>
+
 <script>
 let historyStack = ['home']; 
 let currentApp = null;
+let currentAppIcon = null;
 let currentCat = null;
 let activeServiceList = [];
 let currentFilterType = 'all';
 
+// --- NAVIGATION LOGIC ---
 function navigateTo(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.getElementById(viewId).classList.add('active');
@@ -583,10 +597,20 @@ function goBack() {
     if(prevView === 'subcats') navigateTo('view-subcats');
 }
 
-function goToApp(appName) {
+function goToApp(appName, iconPath) {
     currentApp = appName;
+    currentAppIcon = iconPath;
     historyStack.push('subcats');
+    
+    // Update Header with Icon
     document.getElementById('subcat-title').innerText = appName;
+    let headIcon = document.getElementById('subcat-app-icon');
+    if(iconPath && !iconPath.includes('smm.png')) {
+        headIcon.src = iconPath;
+        headIcon.style.display = 'block';
+    } else {
+        headIcon.style.display = 'none';
+    }
     
     const container = document.getElementById('subcat-image-container');
     container.innerHTML = ''; 
@@ -609,11 +633,6 @@ function goToApp(appName) {
         img.src = imgPath;
         img.className = 'ios-img-btn'; 
         img.alt = filter.name;
-        
-        // Stack Animation inside the box
-        img.style.animation = `listSlide 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`;
-        img.style.animationDelay = `${index * 0.05}s`; 
-
         img.onclick = () => goToServices(filter.keys, filter.name);
         container.appendChild(img);
     });
@@ -621,11 +640,29 @@ function goToApp(appName) {
     navigateTo('view-subcats');
 }
 
+function checkKeywords(service, filterType) {
+    let rule = window.filterRules[filterType];
+    if (!rule) return false;
+    let keys = rule.split(',').map(k => k.trim().toLowerCase());
+    let sName = service.name.toLowerCase();
+    let sCat = service.cat.toLowerCase();
+    return keys.some(key => sName.includes(key) || sCat.includes(key));
+}
+
 function goToServices(keywords, filterName) {
     currentCat = filterName;
     historyStack.push('services');
-    document.getElementById('svc-list-title').innerText = `${currentApp} ${filterName}`;
     
+    // Update Header with Icon
+    document.getElementById('svc-list-title').innerText = `${filterName}`;
+    let headIcon = document.getElementById('svc-app-icon');
+    if(currentAppIcon && !currentAppIcon.includes('smm.png')) {
+        headIcon.src = currentAppIcon;
+        headIcon.style.display = 'block';
+    } else {
+        headIcon.style.display = 'none';
+    }
+
     let rawServices = window.appsData[currentApp].services || [];
     let keys = keywords ? keywords.split(',').map(k => k.trim().toLowerCase()) : [];
 
@@ -657,6 +694,7 @@ function goToServices(keywords, filterName) {
     currentFilterType = 'all';
     renderServices();
     navigateTo('view-services');
+    startFilterAutoScroll(); // Start scrolling filters
 }
 
 function applyFilter(element, type) {
@@ -680,80 +718,141 @@ function renderServices() {
 
     if(currentFilterType === 'cheapest') list.sort((a, b) => a.rate - b.rate);
     else if (currentFilterType === 'high_rate') list.sort((a, b) => b.rate - a.rate);
-    else if (currentFilterType === 'high_quality') list = list.filter(s => s.name.toLowerCase().includes('hq') || s.name.toLowerCase().includes('vip'));
-    else if (currentFilterType === 'instant') list = list.filter(s => s.name.toLowerCase().includes('instant') || s.cat.toLowerCase().includes('instant'));
-    else if (currentFilterType === 'non_drop') list = list.filter(s => s.name.toLowerCase().includes('non-drop'));
-    else if (currentFilterType === 'refill') list = list.filter(s => s.refill === true);
-    else if (currentFilterType === 'no_refill') list = list.filter(s => s.refill === false);
+    else if (currentFilterType === 'high_quality') list = list.filter(s => checkKeywords(s, 'high_quality'));
+    else if (currentFilterType === 'instant') list = list.filter(s => checkKeywords(s, 'instant'));
+    else if (currentFilterType === 'non_drop') list = list.filter(s => checkKeywords(s, 'non_drop'));
+    else if (currentFilterType === 'refill') list = list.filter(s => s.refill === true || checkKeywords(s, 'refill'));
+    else if (currentFilterType === 'no_refill') list = list.filter(s => s.refill === false || checkKeywords(s, 'no_refill'));
 
     if(list.length === 0) noMsg.style.display = 'block';
     else {
         noMsg.style.display = 'none';
         list.forEach(s => {
             let price = (s.rate * window.currConfig.rate).toFixed(2);
-            let tagsHtml = s.refill ? `<span class="tag green">♻️ Refill</span>` : `<span class="tag red">🚫 No Refill</span>`;
+            let tagsHtml = s.refill ? `<span class="tag green">♻️ Refill</span>` : `<span class="tag red">No Refill</span>`;
+            
             let item = document.createElement('div');
             item.className = 'svc-item'; 
             item.onclick = () => openModal(s.id);
-            item.innerHTML = `<div class="svc-header"><span class="svc-title">${s.name}</span><span class="svc-price">${window.currConfig.sym} ${price}</span></div><div class="svc-tags">${tagsHtml}<span class="tag blue">⏱ ${s.avg}</span></div>`;
+            item.innerHTML = `
+                <div class="svc-header">
+                    <span class="svc-title">${s.name}</span>
+                    <span class="svc-price">${window.currConfig.sym} ${price}</span>
+                </div>
+                <div class="svc-tags">
+                    ${tagsHtml}
+                    <span class="tag blue">⏱ ${s.avg}</span>
+                    ${s.cancel ? '<span class="tag purple">Cancel</span>' : ''}
+                </div>
+            `;
             container.appendChild(item);
         });
     }
 }
 
+// --- MODAL LOGIC ---
 let currSvc = null;
+let descInterval;
+
 function openModal(id) {
     let s = window.svcData[id]; if(!s) return;
     currSvc = s;
+    
     document.getElementById('m-id').value = id; 
-    document.getElementById('min-max').innerText = `Min: ${s.min} | Max: ${s.max}`;
+    document.getElementById('min-max').innerText = `${s.min.toLocaleString()} - ${s.max.toLocaleString()}`;
     document.getElementById('m-qty').setAttribute('min', s.min);
     document.getElementById('m-qty').setAttribute('max', s.max);
-    document.getElementById('m-desc').innerText = s.desc.replace(/<[^>]*>?/gm, ''); 
     
-    let rC = s.refill ? '#10b981' : '#ef4444';
-    let cC = s.cancel ? '#10b981' : '#ef4444';
-    
-    // Tighter Stats
-    document.getElementById('m-stats').innerHTML = `
-        <div class="stat-box"><small>Refill</small><b style="color:${rC}">${s.refill?'Yes':'No'}</b></div>
-        <div class="stat-box"><small>Cancel</small><b style="color:${cC}">${s.cancel?'Yes':'No'}</b></div>
-    `;
+    // Set Description & Start Auto Scroll
+    const dBox = document.getElementById('m-desc-box');
+    document.getElementById('m-desc').innerHTML = s.desc; 
+    dBox.scrollTop = 0;
+    startDescAutoScroll(dBox);
 
-    // --- CALCULATE ETA (LIVE) ---
+    // ETA CALCULATION
+    const etaBox = document.getElementById('eta-container');
     if(s.avg_raw > 0) {
         let now = new Date();
-        // Add minutes to current time
-        let completionTime = new Date(now.getTime() + s.avg_raw * 60000);
-        let timeString = completionTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        let completionTime = new Date(now.getTime() + s.avg_raw * 60000); 
+        let days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let dayName = days[completionTime.getDay()];
+        let timeStr = completionTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         
-        document.getElementById('eta-text').innerText = "Done by " + timeString;
-        document.getElementById('eta-container').style.display = 'flex';
+        document.getElementById('eta-text').innerText = `Done by ${dayName}, ${timeStr}`;
+        etaBox.style.display = 'block';
     } else {
-        document.getElementById('eta-container').style.display = 'none';
+        etaBox.style.display = 'none';
     }
 
+    // Reset Form
     document.getElementById('m-qty').value=''; 
     document.getElementById('m-com').value=''; 
     document.getElementById('m-link').value='';
     document.getElementById('m-total').innerText = window.currConfig.sym + ' 0.00';
 
+    // Handle Type logic
+    const qtyGroup = document.getElementById('grp-qty');
+    const comGroup = document.getElementById('grp-com');
+
     if(s.type === 'Package') {
-        document.getElementById('grp-qty').style.display='none'; 
-        document.getElementById('grp-com').style.display='none'; 
+        qtyGroup.style.display='none'; 
+        comGroup.style.display='none'; 
         document.getElementById('m-qty').value = '1'; 
         updatePrice(1);
     } else if(s.is_comment || s.type === 'Custom Comments') { 
-        document.getElementById('grp-qty').style.display='none'; 
-        document.getElementById('grp-com').style.display='block'; 
+        qtyGroup.style.display='none'; 
+        comGroup.style.display='block'; 
     } else { 
-        document.getElementById('grp-qty').style.display='block'; 
-        document.getElementById('grp-com').style.display='none'; 
+        qtyGroup.style.display='flex'; 
+        comGroup.style.display='none'; 
     }
+    
     document.getElementById('order-modal').classList.add('active');
 }
 
-function closeModal() { document.getElementById('order-modal').classList.remove('active'); }
+function closeModal() { 
+    document.getElementById('order-modal').classList.remove('active'); 
+    clearInterval(descInterval); // Stop scroll
+}
+
+// 🔥 AUTO SCROLL LOGIC FOR DESCRIPTION
+function startDescAutoScroll(element) {
+    clearInterval(descInterval);
+    element.onmouseover = () => clearInterval(descInterval);
+    element.ontouchstart = () => clearInterval(descInterval);
+    element.onmouseout = () => runScroll();
+    element.ontouchend = () => runScroll();
+
+    function runScroll() {
+        clearInterval(descInterval);
+        descInterval = setInterval(() => {
+            element.scrollTop += 1;
+            // If reached bottom, reset after pause (optional, here just stops or loops)
+            if(element.scrollTop + element.clientHeight >= element.scrollHeight) {
+                 // element.scrollTop = 0; // Uncomment to loop
+            }
+        }, 50); // Slow speed
+    }
+    runScroll();
+}
+
+// 🔥 AUTO SCROLL LOGIC FOR FILTERS
+let filterInterval;
+function startFilterAutoScroll() {
+    const el = document.getElementById('filter-container');
+    clearInterval(filterInterval);
+    
+    el.onmouseover = () => clearInterval(filterInterval);
+    el.ontouchstart = () => clearInterval(filterInterval);
+    
+    // Auto scroll slowly
+    filterInterval = setInterval(() => {
+        el.scrollLeft += 1;
+        if(el.scrollLeft + el.clientWidth >= el.scrollWidth) {
+             el.scrollLeft = 0; // Infinite loop
+        }
+    }, 40);
+}
 
 function updatePrice(qty) {
     if(!currSvc) return;
@@ -762,11 +861,17 @@ function updatePrice(qty) {
     document.getElementById('m-total').innerText = window.currConfig.sym + ' ' + p.toFixed(2);
 }
 
+function submitOrder() {
+    document.getElementById('order-form').requestSubmit();
+}
+
 async function pasteLink() {
     try {
         const text = await navigator.clipboard.readText();
         document.getElementById('m-link').value = text;
-    } catch(err) { alert('Clipboard permission denied'); }
+    } catch(err) { 
+        Swal.fire({ toast:true, position:'top', icon:'error', title:'Permission required', showConfirmButton:false, timer:1500 });
+    }
 }
 
 document.getElementById('m-qty').addEventListener('input', function(){ updatePrice(parseInt(this.value)||0) });
@@ -779,11 +884,26 @@ document.getElementById('m-com').addEventListener('input', function(){
 document.getElementById('order-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
+    const btn = document.querySelector('.btn-submit-ios');
+    
+    let oldText = btn.innerText;
+    btn.innerText = 'Processing...';
+    btn.style.opacity = '0.7';
+
     fetch('smm_order_action.php', { method:'POST', body: formData })
     .then(r=>r.text())
     .then(res => {
         closeModal();
-        Swal.fire({ title: 'Order Received!', text: 'Your order is being processed.', icon: 'success', confirmButtonColor: '#8b5cf6' });
+        btn.innerText = oldText;
+        btn.style.opacity = '1';
+        Swal.fire({ 
+            title: 'Success!', 
+            text: 'Order placed successfully.', 
+            icon: 'success', 
+            confirmButtonColor: '#007AFF',
+            background: '#F2F2F7',
+            color: '#000'
+        });
     });
 });
 
@@ -798,6 +918,7 @@ document.getElementById('global-search').addEventListener('input', function(e){
     } else if (q.length === 0 && historyStack.includes('services')) goBack();
 });
 
-VanillaTilt.init(document.querySelectorAll(".app-card"), { max: 15, speed: 400, glare: true, "max-glare": 0.2 });
+VanillaTilt.init(document.querySelectorAll(".app-card"), { max: 10, speed: 400, glare: true, "max-glare": 0.2, scale: 1.05 });
 </script>
-<?php include '_smm_footer.php'; ?>
+</body>
+</html>
