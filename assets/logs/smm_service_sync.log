@@ -10694,3 +10694,124 @@
 [2026-02-16 08:30:05] --- SYNC STARTED ---
 [2026-02-16 13:30:05] Syncing with Rate: 1 USD = 304.83 PKR
 [2026-02-16 13:30:07] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 09:00:04] --- SYNC STARTED ---
+[2026-02-16 14:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 14:00:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 14:24:16] STARTING: Service Sync...
+[2026-02-16 09:30:03] --- SYNC STARTED ---
+[2026-02-16 14:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 14:30:05] Sync Complete. New: 2002, Updated: 625, Removed: 0
+[2026-02-16 10:00:04] --- SYNC STARTED ---
+[2026-02-16 15:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 15:00:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 10:30:04] --- SYNC STARTED ---
+[2026-02-16 15:30:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 15:30:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 11:00:03] --- SYNC STARTED ---
+[2026-02-16 16:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 16:00:05] Sync Complete. New: 2002, Updated: 625, Removed: 0
+[2026-02-16 11:30:03] --- SYNC STARTED ---
+[2026-02-16 16:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 16:30:04] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 12:00:04] --- SYNC STARTED ---
+[2026-02-16 17:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 17:00:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 12:30:03] --- SYNC STARTED ---
+[2026-02-16 17:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 17:30:04] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 13:00:03] --- SYNC STARTED ---
+[2026-02-16 18:00:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 18:00:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 13:30:03] --- SYNC STARTED ---
+[2026-02-16 18:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 18:30:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 14:00:04] --- SYNC STARTED ---
+[2026-02-16 19:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 19:00:05] Sync Complete. New: 0, Updated: 2627, Removed: 0
+[2026-02-16 14:30:03] --- SYNC STARTED ---
+[2026-02-16 19:30:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 19:30:07] Sync Complete. New: 0, Updated: 417, Removed: 0
+[2026-02-16 15:00:04] --- SYNC STARTED ---
+[2026-02-16 20:00:05] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 20:00:07] Sync Complete. New: 0, Updated: 417, Removed: 0
+[2026-02-16 15:30:04] --- SYNC STARTED ---
+[2026-02-16 20:30:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 20:30:06] Sync Complete. New: 0, Updated: 417, Removed: 0
+[2026-02-16 16:00:04] --- SYNC STARTED ---
+[2026-02-16 21:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 21:00:06] Sync Complete. New: 4, Updated: 417, Removed: 0
+[2026-02-16 16:30:03] --- SYNC STARTED ---
+[2026-02-16 21:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 21:30:06] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 17:00:03] --- SYNC STARTED ---
+[2026-02-16 22:00:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 22:00:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 17:30:03] --- SYNC STARTED ---
+[2026-02-16 22:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 22:30:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 18:00:04] --- SYNC STARTED ---
+[2026-02-16 23:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 23:00:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 18:30:03] --- SYNC STARTED ---
+[2026-02-16 23:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-16 23:30:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 19:00:03] --- SYNC STARTED ---
+[2026-02-17 00:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 00:00:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 19:30:03] --- SYNC STARTED ---
+[2026-02-17 00:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 00:30:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 20:00:03] --- SYNC STARTED ---
+[2026-02-17 01:00:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 01:00:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 20:30:03] --- SYNC STARTED ---
+[2026-02-17 01:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 01:30:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 21:00:04] --- SYNC STARTED ---
+[2026-02-17 02:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 02:00:06] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 21:30:03] --- SYNC STARTED ---
+[2026-02-17 02:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 02:30:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 22:00:04] --- SYNC STARTED ---
+[2026-02-17 03:00:04] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 03:00:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 22:30:03] --- SYNC STARTED ---
+[2026-02-17 03:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 03:30:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 23:00:04] --- SYNC STARTED ---
+[2026-02-17 04:00:05] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 04:00:06] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-16 23:30:03] --- SYNC STARTED ---
+[2026-02-17 04:30:03] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 04:30:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 00:00:06] --- SYNC STARTED ---
+[2026-02-17 05:00:06] Syncing with Rate: 1 USD = 304.83 PKR
+[2026-02-17 05:00:07] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 00:30:03] --- SYNC STARTED ---
+[2026-02-17 05:30:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 05:30:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 01:00:03] --- SYNC STARTED ---
+[2026-02-17 06:00:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 06:00:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 01:30:03] --- SYNC STARTED ---
+[2026-02-17 06:30:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 06:30:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 02:00:03] --- SYNC STARTED ---
+[2026-02-17 07:00:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 07:00:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 02:30:04] --- SYNC STARTED ---
+[2026-02-17 07:30:04] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 07:30:06] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 03:00:04] --- SYNC STARTED ---
+[2026-02-17 08:00:04] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 08:00:05] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 03:30:03] --- SYNC STARTED ---
+[2026-02-17 08:30:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 08:30:06] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 04:00:03] --- SYNC STARTED ---
+[2026-02-17 09:00:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 09:00:04] Sync Complete. New: 0, Updated: 421, Removed: 0
+[2026-02-17 04:30:03] --- SYNC STARTED ---
+[2026-02-17 09:30:03] Syncing with Rate: 1 USD = 304.7 PKR
+[2026-02-17 09:30:05] Sync Complete. New: 0, Updated: 421, Removed: 0
