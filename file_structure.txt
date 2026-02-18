@@ -33,4 +33,5 @@ services.php
 sitemap.php
 sitemap.xml
 user/
+verify.php
 verify_login.php
