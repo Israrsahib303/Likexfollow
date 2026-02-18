@@ -39,33 +39,53 @@ try {
     }
 } catch (Exception $e) {}
 
-// --- DATA FETCHING ---
+// --- DATA FETCHING & LOGIC ---
 try {
-    // 1. Fetch Dynamic Sub-Categories
-    $dynamic_sub_cats = [];
+    // 1. Initialize Arrays
+    $grouped_apps = [];
+    $db_app_icons = []; 
+    $app_master_list = [];
+
+    // 2. Fetch All Active Sub-Categories (Defines the Main Apps)
     try {
         $stmt_sub = $db->query("SELECT * FROM smm_sub_categories WHERE is_active=1 ORDER BY sort_order ASC");
         $sub_rows = $stmt_sub->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($sub_rows as $row) {
             $mainApp = trim($row['main_app']);
-            $dynamic_sub_cats[$mainApp][] = [
+            if(empty($mainApp)) continue;
+
+            // Save Uploaded Icon if found (Priority to rows that have icons)
+            if (!empty($row['main_cat_icon'])) {
+                $db_app_icons[$mainApp] = $row['main_cat_icon'];
+            }
+
+            // Initialize App in Master List
+            if (!isset($grouped_apps[$mainApp])) {
+                $grouped_apps[$mainApp] = [
+                    'services' => [],
+                    'filters' => []
+                ];
+            }
+
+            // Add Sub-Category Filter
+            $grouped_apps[$mainApp]['filters'][] = [
                 'name' => $row['sub_cat_name'],
                 'icon' => $row['sub_cat_icon'], 
                 'keys' => strtolower($row['keywords'])
             ];
         }
     } catch (PDOException $e) {
-        $dynamic_sub_cats = [];
+        // DB Error Handling
     }
 
-    // 2. Fetch Services
+    // 3. Fetch Services
     $stmt = $db->query("SELECT s.*, p.api_url as provider_api FROM smm_services s LEFT JOIN smm_providers p ON s.provider_id = p.id WHERE s.is_active = 1 ORDER BY s.category ASC, s.service_rate ASC");
     $all_services = $stmt->fetchAll();
     
-    $grouped_apps = [];
     $services_json = [];
     
+    // Default Fallback Icons
     $main_app_icons = [
         'Instagram' => 'Instagram.png',
         'TikTok' => 'TikTok.png',
@@ -81,62 +101,46 @@ try {
 
     foreach ($all_services as $s) {
         $full_cat = trim($s['category']);
-        $app_name = 'Others'; 
+        $app_name = null; 
         
-        // Auto-detect App
-        if (!empty($dynamic_sub_cats)) {
-            foreach ($dynamic_sub_cats as $kApp => $filters) {
-                if (stripos($full_cat, $kApp) !== false) {
-                    $app_name = $kApp;
-                    break;
-                }
-            }
-        } 
-        
-        if ($app_name === 'Others') {
-            foreach ($main_app_icons as $kApp => $icon) {
-                if (stripos($full_cat, $kApp) !== false) {
-                    $app_name = $kApp;
-                    break;
-                }
+        // Strict Matching: Service MUST match a Main App defined in DB
+        foreach ($grouped_apps as $kApp => $data) {
+            if (stripos($full_cat, $kApp) !== false) {
+                $app_name = $kApp;
+                break;
             }
         }
         
-        $grouped_apps[$app_name]['services'][] = $s; 
-        
-        // Assign Filters
-        if (isset($dynamic_sub_cats[$app_name])) {
-            $grouped_apps[$app_name]['filters'] = $dynamic_sub_cats[$app_name];
-        } else {
-            $grouped_apps[$app_name]['filters'] = [
-                ['name'=>'Followers', 'icon'=>'default.png', 'keys'=>'followers, sub'],
-                ['name'=>'Likes', 'icon'=>'default.png', 'keys'=>'likes, heart'],
-                ['name'=>'Views', 'icon'=>'default.png', 'keys'=>'views, play']
+        // If service matches an existing app, add it. Otherwise, IGNORE it (Deletes Others).
+        if ($app_name) {
+            $grouped_apps[$app_name]['services'][] = $s; 
+            
+            // Build JSON Data
+            $is_comment = (stripos($s['name'], 'Comment') !== false || stripos($s['category'], 'Comment') !== false);
+            $has_drip = (isset($s['dripfeed']) && $s['dripfeed'] == 1) ? 1 : 0;
+            
+            $services_json[$s['id']] = [
+                'id'      => $s['id'],
+                'rate'    => (float)$s['service_rate'], 
+                'min'     => (int)$s['min'],
+                'max'     => (int)$s['max'],
+                'avg'     => formatSmmAvgTime($s['avg_time']),
+                'avg_raw' => (int)$s['avg_time'], 
+                'refill' => (bool)$s['has_refill'],
+                'cancel' => (bool)$s['has_cancel'],
+                'drip'    => $has_drip,
+                'type'    => $s['service_type'] ?? 'Default',
+                'name'    => sanitize($s['name']),
+                'cat'     => sanitize($full_cat),
+                'desc'    => nl2br($s['description'] ?? 'No details.'),
+                'is_comment' => $is_comment,
+                'app'     => $app_name
             ];
         }
-        
-        $is_comment = (stripos($s['name'], 'Comment') !== false || stripos($s['category'], 'Comment') !== false);
-        $has_drip = (isset($s['dripfeed']) && $s['dripfeed'] == 1) ? 1 : 0;
-        
-        $services_json[$s['id']] = [
-            'id'      => $s['id'],
-            'rate'    => (float)$s['service_rate'], 
-            'min'     => (int)$s['min'],
-            'max'     => (int)$s['max'],
-            'avg'     => formatSmmAvgTime($s['avg_time']),
-            'avg_raw' => (int)$s['avg_time'], 
-            'refill' => (bool)$s['has_refill'],
-            'cancel' => (bool)$s['has_cancel'],
-            'drip'    => $has_drip,
-            'type'    => $s['service_type'] ?? 'Default',
-            'name'    => sanitize($s['name']),
-            'cat'     => sanitize($full_cat),
-            'desc'    => nl2br($s['description'] ?? 'No details.'),
-            'is_comment' => $is_comment,
-            'app'     => $app_name
-        ];
     }
-    ksort($grouped_apps);
+    
+    // Sort Apps Alphabetically or leave DB Sort? Let's keep DB Sort implicit but clean up keys
+    // ksort($grouped_apps); // Optional: Uncomment to sort A-Z
 
 } catch (Exception $e) { $error = $e->getMessage(); }
 ?>
@@ -148,6 +152,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
 
@@ -438,6 +443,69 @@ try {
     .footer-brand { font-weight: 800; color: var(--ios-text); font-size: 18px; margin-bottom: 5px; display:block; }
     .footer-text { font-size: 12px; color: var(--ios-text-secondary); }
 
+    /* 🌟 NEW SUCCESS POPUP STYLES (iOS Apple Pay Style) */
+    .ios-success-overlay {
+        position: fixed; top:0; left:0; width:100%; height:100%;
+        background: rgba(242, 242, 247, 0.6); 
+        backdrop-filter: blur(20px) saturate(180%);
+        z-index: 3000; display:none;
+        align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.4s ease;
+    }
+    .ios-success-overlay.active { display:flex; opacity:1; }
+
+    .ios-success-card {
+        background: #FFFFFF;
+        width: 320px;
+        border-radius: 32px;
+        padding: 40px 24px;
+        text-align: center;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        transform: scale(0.8);
+        transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .ios-success-overlay.active .ios-success-card { transform: scale(1); }
+
+    /* Animated Checkmark */
+    .success-icon-container {
+        width: 80px; height: 80px; margin: 0 auto 24px auto;
+        border-radius: 50%; background: #007AFF;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 10px 20px rgba(0, 122, 255, 0.3);
+    }
+    .checkmark-svg { width: 40px; height: 40px; stroke: white; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .checkmark-path { stroke-dasharray: 100; stroke-dashoffset: 100; }
+    .ios-success-overlay.active .checkmark-path { animation: drawCheck 0.8s 0.2s forwards ease-in-out; }
+
+    @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+    .success-title { font-size: 24px; font-weight: 800; color: #000; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .success-msg { font-size: 15px; color: #8E8E93; line-height: 1.4; margin-bottom: 24px; }
+    
+    .btn-check-order {
+        background: rgba(0, 122, 255, 0.1); color: #007AFF;
+        border: none; padding: 12px 24px; border-radius: 20px;
+        font-size: 15px; font-weight: 600; cursor: pointer; width: 100%;
+        transition: background 0.2s;
+    }
+    .btn-check-order:hover { background: rgba(0, 122, 255, 0.2); }
+
+    /* Redirect Bar */
+    .redirect-bar {
+        height: 4px; width: 100%; background: #F2F2F7;
+        margin-top: 24px; border-radius: 2px; overflow: hidden;
+    }
+    .redirect-progress {
+        height: 100%; width: 0%; background: #007AFF;
+        border-radius: 2px;
+    }
+    .ios-success-overlay.active .redirect-progress {
+        animation: fillProgress 5s linear forwards;
+    }
+    @keyframes fillProgress { to { width: 100%; } }
+
     /* Mobile */
     @media (max-width: 480px) {
         .modal-overlay { align-items: flex-end; padding: 0; }
@@ -464,12 +532,21 @@ try {
         <h3>Apps</h3>
         <div class="grid-container">
             <?php foreach($grouped_apps as $appName => $data): 
-                $icon = 'smm.png';
-                if(isset($main_app_icons[$appName])) $icon = $main_app_icons[$appName];
+                // FIXED: Check DB for Icon, Else Custom, Else Default
+                $finalIconPath = '../assets/img/icons/smm.png';
+
+                // 1. Check Database Uploaded Icon
+                if (isset($db_app_icons[$appName])) {
+                    $finalIconPath = '../assets/uploads/' . $db_app_icons[$appName];
+                }
+                // 2. Check System Built-in Icons
+                elseif (isset($main_app_icons[$appName])) {
+                    $finalIconPath = '../assets/img/icons/' . $main_app_icons[$appName];
+                }
             ?>
-            <div class="app-card" onclick="goToApp('<?= $appName ?>', '../assets/img/icons/<?= $icon ?>')">
+            <div class="app-card" onclick="goToApp('<?= $appName ?>', '<?= $finalIconPath ?>')">
                 <div class="app-icon-wrap">
-                    <img src="../assets/img/icons/<?= $icon ?>" onerror="this.src='../assets/img/icons/smm.png'">
+                    <img src="<?= $finalIconPath ?>" onerror="this.src='../assets/img/icons/smm.png'">
                 </div>
                 <span class="app-name"><?= $appName ?></span>
             </div>
@@ -569,6 +646,27 @@ try {
             </div>
             <button type="button" class="btn-submit-ios" onclick="submitOrder()">Place Order</button>
         </div>
+    </div>
+</div>
+
+<div id="ios-success-modal" class="ios-success-overlay">
+    <div class="ios-success-card">
+        <div class="success-icon-container">
+            <svg class="checkmark-svg" viewBox="0 0 52 52">
+                <path class="checkmark-path" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+        </div>
+        <h2 class="success-title">Success!</h2>
+        <p class="success-msg">Your order has been placed successfully.</p>
+        
+        <button class="btn-check-order" onclick="window.location.href='https://likexfollow.com/user/smm_history.php'">
+            Check Order
+        </button>
+
+        <div class="redirect-bar">
+            <div class="redirect-progress"></div>
+        </div>
+        <p style="margin-top:10px; font-size:11px; color:#c7c7cc;">Redirecting in 5s...</p>
     </div>
 </div>
 
@@ -881,6 +979,7 @@ document.getElementById('m-com').addEventListener('input', function(){
     updatePrice(c); 
 });
 
+// 🔥 MODIFIED: NEW iOS SUCCESS HANDLING
 document.getElementById('order-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -893,17 +992,39 @@ document.getElementById('order-form').addEventListener('submit', function(e) {
     fetch('smm_order_action.php', { method:'POST', body: formData })
     .then(r=>r.text())
     .then(res => {
+        // 1. Close the order modal
         closeModal();
+        
+        // 2. Reset Button
         btn.innerText = oldText;
         btn.style.opacity = '1';
-        Swal.fire({ 
-            title: 'Success!', 
-            text: 'Order placed successfully.', 
-            icon: 'success', 
-            confirmButtonColor: '#007AFF',
-            background: '#F2F2F7',
-            color: '#000'
-        });
+
+        // 3. SHOW THE NEW iOS SUCCESS POPUP
+        const successModal = document.getElementById('ios-success-modal');
+        successModal.classList.add('active');
+
+        // 4. FIRE CONFETTI (Apple Style Celebration)
+        var count = 200;
+        var defaults = {
+            origin: { y: 0.7 }
+        };
+
+        function fire(particleRatio, opts) {
+            confetti(Object.assign({}, defaults, opts, {
+                particleCount: Math.floor(count * particleRatio)
+            }));
+        }
+
+        fire(0.25, { spread: 26, startVelocity: 55, colors:['#007AFF','#34C759'] });
+        fire(0.2, { spread: 60 });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+        fire(0.1, { spread: 120, startVelocity: 45 });
+
+        // 5. AUTO REDIRECT AFTER 5 SECONDS
+        setTimeout(() => {
+            window.location.href = 'https://likexfollow.com/user/smm_history.php';
+        }, 5000);
     });
 });
 
