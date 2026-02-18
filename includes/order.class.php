@@ -29,8 +29,26 @@ class Order {
             $product_id = $variation['product_id'];
             $product_name = $variation['product_name'];
             $duration_months = $variation['duration_months'];
-            $total_price = (float)$variation['price'];
-            $unit_price = $total_price / $duration_months; // Sirf record ke liye
+            
+            // --- CUSTOM RATE CALCULATION START ---
+            $base_price = (float)$variation['price'];
+            
+            // User ka custom rate fetch karein
+            $stmt_user = $this->db->prepare("SELECT custom_rate FROM users WHERE id = ?");
+            $stmt_user->execute([$user_id]);
+            $user_rate = (float)$stmt_user->fetchColumn();
+
+            // Calculate Final Price
+            // Agar user_rate -10 hai (Discount), to Price = Base - 10%
+            // Agar user_rate +10 hai (Premium), to Price = Base + 10%
+            $adjustment = $base_price * ($user_rate / 100);
+            $total_price = $base_price + $adjustment;
+
+            // Price negative nahi ho sakti
+            if ($total_price < 0) $total_price = 0;
+
+            $unit_price = ($duration_months > 0) ? ($total_price / $duration_months) : $total_price; 
+            // --- CUSTOM RATE CALCULATION END ---
 
             // 3. User ka balance check karein
             $current_balance = $this->wallet->getBalance($user_id);
@@ -57,7 +75,15 @@ class Order {
             $order_id = $this->db->lastInsertId();
 
             // 6. Wallet se paise kaatein
-            $debit_note = "Order #{$code} - {$product_name} ({$variation['type']} - {$duration_months}M)";
+            // Note mein discount/premium mention karein
+            $rate_note = "";
+            if ($user_rate < 0) {
+                $rate_note = " (Discount: " . abs($user_rate) . "%)";
+            } elseif ($user_rate > 0) {
+                $rate_note = " (Extra: " . abs($user_rate) . "%)";
+            }
+
+            $debit_note = "Order #{$code} - {$product_name} ({$variation['type']} - {$duration_months}M){$rate_note}";
             $debit_success = $this->wallet->addDebit($user_id, $total_price, 'order', $order_id, $debit_note);
 
             if (!$debit_success) {
