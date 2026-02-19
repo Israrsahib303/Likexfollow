@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_action'])) {
     ini_set('display_errors', 0);
     header('Content-Type: application/json');
 
-    // MANUAL CORE LOAD (Because we skipped _header.php)
+    // MANUAL CORE LOAD
     $paths = [
         '../includes/db.php',
         '../includes/helpers.php',
@@ -50,9 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_action'])) {
         return ['status' => 'success', 'data' => $response];
     }
 
-    // ACTION A: GET CATEGORIES
-    if ($_POST['ajax_action'] == 'get_provider_cats') {
-        global $db; // Ensure DB access
+    // ACTION: FETCH DATA (Gets ALL services to process locally for speed)
+    if ($_POST['ajax_action'] == 'get_provider_data') {
+        global $db;
         $pid = (int)$_POST['provider_id'];
         
         $stmt = $db->prepare("SELECT * FROM smm_providers WHERE id=?");
@@ -68,17 +68,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_action'])) {
             exit;
         }
 
-        // Clean Response (Remove potential BOM/Whitespace)
+        // Clean Response
         $cleanData = trim($res['data']);
         $services = json_decode($cleanData, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            // Check if HTML was returned (Cloudflare/Error Page)
             $preview = htmlspecialchars(substr($cleanData, 0, 100));
             echo json_encode(['error' => "Provider returned Invalid JSON. Preview: $preview"]);
             exit;
         }
 
+        // Extract Categories
         $categories = [];
         if (is_array($services)) {
             foreach ($services as $s) {
@@ -87,36 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_action'])) {
             }
         }
         
-        echo json_encode(['status' => 'success', 'categories' => $categories]);
-        exit;
-    }
-
-    // ACTION B: GET SERVICES
-    if ($_POST['ajax_action'] == 'get_provider_services') {
-        global $db;
-        $pid = (int)$_POST['provider_id'];
-        $catName = $_POST['category'];
-
-        $stmt = $db->prepare("SELECT * FROM smm_providers WHERE id=?");
-        $stmt->execute([$pid]);
-        $prov = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        $res = robustApiRequest($prov['api_url'], ['key' => $prov['api_key'], 'action' => 'services']);
-        
-        if ($res['status'] === 'error') { echo json_encode(['error' => $res['message']]); exit; }
-
-        $services = json_decode($res['data'], true);
-        $filtered = [];
-
-        if (is_array($services)) {
-            foreach ($services as $s) {
-                if (isset($s['category']) && trim($s['category']) == $catName) {
-                    $filtered[] = $s;
-                }
-            }
-        }
-        
-        echo json_encode(['status' => 'success', 'services' => $filtered]);
+        // Return BOTH categories and full service list (Client side filtering is faster)
+        echo json_encode([
+            'status' => 'success', 
+            'categories' => $categories,
+            'services' => $services // Sending all services to JS
+        ]);
         exit;
     }
     
@@ -163,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         $subIcon = uploadIcon($_FILES['sub_icon']);
         $mainIcon = uploadIcon($_FILES['main_icon']);
 
-        // LOGIC: If New Main App selected but no Icon uploaded, try to inherit from existing
+        // Inherit Icon Logic
         if (!$mainIcon && $main_app_select !== 'NEW') {
             $stmtIcon = $db->prepare("SELECT main_cat_icon FROM smm_sub_categories WHERE main_app=? LIMIT 1");
             $stmtIcon->execute([$main_app]);
@@ -171,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             if ($existingIcon) $mainIcon = $existingIcon;
         }
 
-        // LOGIC: Sync Main App Icon to ALL sub-categories if updated
+        // Sync Icon Logic
         if ($mainIcon) {
             $db->prepare("UPDATE smm_sub_categories SET main_cat_icon=? WHERE main_app=?")->execute([$mainIcon, $main_app]);
         }
@@ -193,7 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             if(!$subIcon) $subIcon = 'default.png';
             $stmt = $db->prepare("INSERT INTO smm_sub_categories (main_app, sub_cat_name, sub_cat_icon, main_cat_icon, keywords, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$main_app, $sub_name, $subIcon, $mainIcon, $keywords, $sort]);
-            $success = "New Category Created! 🔥";
+            $id = $db->lastInsertId(); // Capture ID for immediate import
+            $success = "New Category Created! 🔥 You can now import services.";
         }
     }
 
@@ -216,22 +193,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         $target_cat_id = (int)$_POST['target_cat_id'];
         $provider_id = (int)$_POST['provider_id'];
         
+        // Critical Check: Ensure Target Category Exists
         $localCat = $db->query("SELECT main_app, sub_cat_name FROM smm_sub_categories WHERE id=$target_cat_id")->fetch();
-        $finalCatName = $localCat['main_app'] . ' - ' . $localCat['sub_cat_name'];
         
-        if (!empty($_POST['selected_services'])) {
-            $stmt = $db->prepare("INSERT INTO smm_services (service_id, provider_id, name, category, rate, min, max, type, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
-            foreach ($_POST['selected_services'] as $svcRaw) {
-                $s = json_decode(base64_decode($svcRaw), true);
-                if($s) {
-                    $newRate = $s['rate'] * (1 + ($profit / 100));
-                    try {
-                        $stmt->execute([$s['service'], $provider_id, $s['name'], $finalCatName, $newRate, $s['min'], $s['max'], $s['type']]);
-                        $count++;
-                    } catch(Exception $e) { /* Ignore Duplicates */ }
+        if ($localCat) {
+            $finalCatName = $localCat['main_app'] . ' - ' . $localCat['sub_cat_name'];
+            
+            if (!empty($_POST['selected_services'])) {
+                $stmt = $db->prepare("INSERT INTO smm_services (service_id, provider_id, name, category, rate, min, max, type, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                foreach ($_POST['selected_services'] as $svcRaw) {
+                    // FIX: Robust Decoding (Handles Special Chars/Emojis)
+                    $jsonStr = rawurldecode(base64_decode($svcRaw));
+                    $s = json_decode($jsonStr, true);
+                    
+                    if($s) {
+                        $newRate = $s['rate'] * (1 + ($profit / 100));
+                        try {
+                            $stmt->execute([$s['service'], $provider_id, $s['name'], $finalCatName, $newRate, $s['min'], $s['max'], $s['type']]);
+                            $count++;
+                        } catch(Exception $e) { /* Ignore Duplicates */ }
+                    }
                 }
+                $success = "Successfully Imported $count Services! 💰";
             }
-            $success = "Successfully Imported $count Services! 💰";
+        } else {
+            $error = "Error: Target Category not found. Please save the category first.";
         }
     }
 }
@@ -257,9 +243,8 @@ try {
     $dbApps = $db->query("SELECT DISTINCT main_app FROM smm_sub_categories WHERE main_app != ''")->fetchAll(PDO::FETCH_COLUMN);
 } catch (Exception $e) { $dbApps = []; }
 
-// Merge DB Apps with Built-in Apps & Remove Duplicates
 $mainApps = array_unique(array_merge($dbApps, $builtInApps));
-sort($mainApps); // Sort alphabetically
+sort($mainApps);
 ?>
 
 <style>
@@ -320,7 +305,7 @@ sort($mainApps); // Sort alphabetically
     .modal-overlay.active { display: flex; opacity: 1; }
     
     .modal-box {
-        background: white; width: 95%; max-width: 650px;
+        background: white; width: 95%; max-width: 700px; /* Wider for new import layout */
         border-radius: 24px; padding: 30px; max-height: 90vh; overflow-y: auto;
         transform: scale(0.9); transition: 0.3s;
     }
@@ -330,10 +315,22 @@ sort($mainApps); // Sort alphabetically
     .form-control { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: #f8fafc; outline: none; }
     .form-control:focus { border-color: var(--primary); background: white; }
 
+    /* Custom Checkbox Grid */
+    .checkbox-grid {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+        max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px;
+    }
+    .chk-item {
+        display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 5px;
+        border-radius: 5px; cursor: pointer; transition: 0.2s;
+    }
+    .chk-item:hover { background: #f1f5f9; }
+
     @media (max-width: 768px) {
         .glass-header { flex-direction: column; gap: 15px; align-items: stretch; }
         .search-input { width: 100%; }
         .cat-grid { grid-template-columns: 1fr; }
+        .checkbox-grid { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -359,6 +356,11 @@ sort($mainApps); // Sort alphabetically
 <?php if($success): ?>
     <div style="margin:20px; padding:15px; background:#d1fae5; color:#065f46; border-radius:12px; font-weight:600;">
         <?= $success ?>
+    </div>
+<?php endif; ?>
+<?php if($error): ?>
+    <div style="margin:20px; padding:15px; background:#fee2e2; color:#b91c1c; border-radius:12px; font-weight:600;">
+        <?= $error ?>
     </div>
 <?php endif; ?>
 
@@ -416,7 +418,7 @@ sort($mainApps); // Sort alphabetically
 
         <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">
             <button onclick="switchTab('details')" id="tab_details" class="btn btn-primary" style="padding:8px 15px;">1. Details</button>
-            <button onclick="switchTab('import')" id="tab_import" class="btn btn-soft" style="padding:8px 15px; display:none;">2. Import Services</button>
+            <button onclick="switchTab('import')" id="tab_import" class="btn btn-soft" style="padding:8px 15px;">2. Import Services</button>
         </div>
 
         <form method="POST" enctype="multipart/form-data" id="detailsForm">
@@ -468,11 +470,16 @@ sort($mainApps); // Sort alphabetically
         </form>
 
         <div id="view_import" style="display:none;">
+            
+            <div id="new_cat_warning" style="display:none; padding:10px; background:#fff7ed; color:#c2410c; border:1px solid #ffedd5; border-radius:10px; margin-bottom:15px; font-size:0.9rem;">
+                ⚠️ <b>Wait!</b> You must save this category first before importing services. Switch to "Details" and click Save.
+            </div>
+
             <div style="background:#f0f9ff; padding:15px; border-radius:12px; border:1px dashed #0ea5e9; margin-bottom:20px;">
-                <h4 style="margin:0 0 10px 0; color:#0284c7;">Fetch & Import</h4>
+                <h4 style="margin:0 0 10px 0; color:#0284c7;">Fetch from Provider</h4>
                 
                 <label class="form-label">1. Choose API Provider</label>
-                <select id="imp_provider" class="form-control" onchange="fetchRemoteCats(this.value)">
+                <select id="imp_provider" class="form-control" onchange="fetchProviderData(this.value)">
                     <option value="">Select Provider...</option>
                     <?php if(!empty($providers)): ?>
                         <?php foreach($providers as $p): 
@@ -486,18 +493,34 @@ sort($mainApps); // Sort alphabetically
                 </select>
 
                 <div id="imp_cat_wrapper" style="display:none; margin-top:15px;">
-                    <label class="form-label">2. Select Remote Category</label>
-                    <select id="imp_remote_cat" class="form-control" onchange="fetchRemoteServices(this.value)"></select>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label class="form-label">2. Select Categories (Multiple)</label>
+                        <label style="font-size:0.8rem; color:var(--primary); cursor:pointer;"><input type="checkbox" onchange="toggleAllCats(this)"> Select All</label>
+                    </div>
+                    
+                    <input type="text" placeholder="Filter categories..." onkeyup="filterCheckboxList(this.value)" class="form-control" style="padding:6px 10px; margin-bottom:5px; font-size:0.85rem;">
+
+                    <div id="cat_checkboxes" class="checkbox-grid">
+                        </div>
+                    
+                    <button type="button" onclick="renderFilteredServices()" class="btn btn-soft" style="width:100%; margin-top:10px; border:1px solid var(--primary); color:var(--primary);">
+                        <i class="fa fa-filter"></i> Show Services from Selected Categories
+                    </button>
                 </div>
             </div>
 
-            <form method="POST" id="importForm">
+            <form method="POST" id="importForm" onsubmit="return validateImport()">
                 <input type="hidden" name="action" value="import_selected">
                 <input type="hidden" name="target_cat_id" id="imp_target_id">
                 <input type="hidden" name="provider_id" id="imp_provider_id_hidden">
                 
-                <div id="imp_services_list" style="max-height:250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:15px;">
-                    <div style="padding:20px; text-align:center; color:#94a3b8;">Select a category to load services...</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                     <h4 style="margin:0; color:#1e293b;">Available Services</h4>
+                     <label style="font-size:0.85rem;"><input type="checkbox" onchange="toggleAllServices(this)"> Select All</label>
+                </div>
+
+                <div id="imp_services_list" style="max-height:250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:15px; background:white;">
+                    <div style="padding:20px; text-align:center; color:#94a3b8;">Select a category above to load services...</div>
                 </div>
 
                 <div style="display:flex; gap:10px; align-items:center;">
@@ -507,7 +530,7 @@ sort($mainApps); // Sort alphabetically
                     </div>
                     <div style="flex:2;">
                         <label class="form-label">&nbsp;</label>
-                        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Import Selected</button>
+                        <button type="submit" id="btn_import_submit" class="btn btn-primary" style="width:100%; justify-content:center;">Import Selected</button>
                     </div>
                 </div>
             </form>
@@ -517,14 +540,28 @@ sort($mainApps); // Sort alphabetically
 </div>
 
 <script>
+// --- GLOBAL DATA STORE ---
+let allProviderServices = []; // Stores all fetched services
+let currentCatId = 0;
+
 // --- UI INTERACTIONS ---
 function openModal(mode) {
     document.getElementById('mainModal').classList.add('active');
+    
+    // Reset Data
+    allProviderServices = [];
+    document.getElementById('cat_checkboxes').innerHTML = '';
+    document.getElementById('imp_services_list').innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">Select Provider First</div>';
+    document.getElementById('imp_provider').value = "";
+    document.getElementById('imp_cat_wrapper').style.display = 'none';
+
     if(mode === 'new') {
         document.getElementById('modalTitle').innerText = 'New Category';
         document.getElementById('inp_id').value = 0;
+        document.getElementById('imp_target_id').value = 0;
+        currentCatId = 0;
+        
         document.getElementById('detailsForm').reset();
-        document.getElementById('tab_import').style.display = 'none';
         switchTab('details');
         toggleNewApp('');
     }
@@ -542,6 +579,21 @@ function switchTab(tab) {
     document.getElementById('view_details').style.display = (tab === 'details') ? 'block' : 'none';
     document.getElementById('view_import').style.display = (tab === 'import') ? 'block' : 'none';
     
+    // Check if ID exists for import
+    if(tab === 'import') {
+        if(currentCatId == 0) {
+            document.getElementById('new_cat_warning').style.display = 'block';
+            document.getElementById('btn_import_submit').disabled = true;
+            document.getElementById('btn_import_submit').style.opacity = '0.5';
+            document.getElementById('btn_import_submit').innerText = "Save Category First";
+        } else {
+            document.getElementById('new_cat_warning').style.display = 'none';
+            document.getElementById('btn_import_submit').disabled = false;
+            document.getElementById('btn_import_submit').style.opacity = '1';
+            document.getElementById('btn_import_submit').innerText = "Import Selected";
+        }
+    }
+    
     if(tab === 'details') {
         document.getElementById('tab_details').classList.replace('btn-soft', 'btn-primary');
         document.getElementById('tab_import').classList.replace('btn-primary', 'btn-soft');
@@ -555,10 +607,12 @@ function editCat(data) {
     openModal('edit');
     document.getElementById('modalTitle').innerText = 'Edit: ' + data.sub_cat_name;
     document.getElementById('inp_id').value = data.id;
+    document.getElementById('imp_target_id').value = data.id;
+    currentCatId = data.id;
+
     document.getElementById('inp_sub_name').value = data.sub_cat_name;
     document.getElementById('inp_keywords').value = data.keywords;
     document.getElementById('inp_sort').value = data.sort_order;
-    document.getElementById('imp_target_id').value = data.id;
 
     let sel = document.getElementById('inp_app_select');
     let found = false;
@@ -572,7 +626,15 @@ function editCat(data) {
     } else {
         toggleNewApp(data.main_app);
     }
-    document.getElementById('tab_import').style.display = 'block';
+}
+
+function validateImport() {
+    if(currentCatId == 0) {
+        alert("Please go to the 'Details' tab and SAVE the category first!");
+        switchTab('details');
+        return false;
+    }
+    return true;
 }
 
 function filterCats() {
@@ -583,105 +645,120 @@ function filterCats() {
     cards.forEach(card => {
         let matchText = card.getAttribute('data-search').includes(q);
         let matchApp = app === '' || card.getAttribute('data-app') === app;
-        
         card.style.display = (matchText && matchApp) ? 'flex' : 'none';
     });
 }
 
-// --- ROBUST API AJAX LOGIC ---
-function fetchRemoteCats(pid) {
+// --- NEW ROBUST API LOGIC (FETCH ONCE, FILTER LOCALLY) ---
+function fetchProviderData(pid) {
     if(!pid) return;
     document.getElementById('imp_provider_id_hidden').value = pid;
     
     let fd = new FormData();
-    fd.append('ajax_action', 'get_provider_cats');
+    fd.append('ajax_action', 'get_provider_data');
     fd.append('provider_id', pid);
 
     document.getElementById('imp_cat_wrapper').style.display = 'none';
+    document.getElementById('cat_checkboxes').innerHTML = '<div style="grid-column:1/-1; text-align:center;"><i class="fa fa-spinner fa-spin"></i> Loading Data...</div>';
 
     fetch('', { method: 'POST', body: fd })
-    .then(r => r.text())
+    .then(r => r.text()) // Get text first to debug
     .then(text => {
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            console.error("Raw Response:", text);
-            if(text.trim().startsWith('<')) {
-                alert("Critical Error: HTML Leaked into JSON. Check Header files.");
-            } else {
-                alert("Error: Server Returned Invalid JSON. Check Console.");
-            }
-            return { error: 'Invalid JSON' };
-        }
+        try { return JSON.parse(text); } 
+        catch (e) { console.error("Bad JSON:", text); throw new Error("Invalid JSON from Server"); }
     })
     .then(d => {
-        if(d.error) { 
-            alert("API Error: " + d.error); 
-            return; 
-        }
+        if(d.error) { alert("API Error: " + d.error); return; }
         
-        let sel = document.getElementById('imp_remote_cat');
-        sel.innerHTML = '<option value="">Select...</option>';
+        // Store services globally
+        allProviderServices = d.services || [];
+        
+        // Render Categories Checkboxes
+        let html = '';
         if(d.categories && d.categories.length > 0) {
             d.categories.forEach(c => {
-                sel.innerHTML += `<option value="${c}">${c}</option>`;
+                // Checkbox ID is hash of name
+                let cleanName = c.replace(/[^a-zA-Z0-9]/g, '');
+                html += `
+                <label class="chk-item" data-name="${c.toLowerCase()}">
+                    <input type="checkbox" value="${c}" class="cat-chk">
+                    <span>${c}</span>
+                </label>`;
             });
+            document.getElementById('cat_checkboxes').innerHTML = html;
             document.getElementById('imp_cat_wrapper').style.display = 'block';
         } else {
-            alert("Connected to Provider, but no categories found!");
+            alert("No categories found!");
         }
     })
     .catch(e => {
-        alert("Fatal Error: Could not connect to internal API handler.");
-        console.error(e);
+        alert("Error loading data: " + e.message);
     });
 }
 
-function fetchRemoteServices(cat) {
-    if(!cat) return;
-    let pid = document.getElementById('imp_provider').value;
-    
-    let fd = new FormData();
-    fd.append('ajax_action', 'get_provider_services');
-    fd.append('provider_id', pid);
-    fd.append('category', cat);
+// Filter Category Checkboxes (Search Bar)
+function filterCheckboxList(query) {
+    let q = query.toLowerCase();
+    document.querySelectorAll('.chk-item').forEach(item => {
+        let name = item.getAttribute('data-name');
+        item.style.display = name.includes(q) ? 'flex' : 'none';
+    });
+}
 
-    document.getElementById('imp_services_list').innerHTML = '<div style="padding:20px; text-align:center;">Loading... <i class="fa fa-spinner fa-spin"></i></div>';
-
-    fetch('', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(d => {
-        if(d.error) {
-            document.getElementById('imp_services_list').innerHTML = `<div style="padding:20px; color:red;">Error: ${d.error}</div>`;
-            return;
+function toggleAllCats(source) {
+    document.querySelectorAll('.cat-chk').forEach(c => {
+        // Only toggle visible ones (if filtered)
+        if(c.closest('.chk-item').style.display !== 'none') {
+            c.checked = source.checked;
         }
+    });
+}
 
-        let html = '<div style="padding:10px;"><label><input type="checkbox" onchange="toggleAll(this)"> Select All</label></div>';
-        if(d.services && d.services.length > 0) {
-            d.services.forEach(s => {
-                let json = btoa(unescape(encodeURIComponent(JSON.stringify(s))));
-                html += `
-                <div style="padding:10px; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:center;">
-                    <input type="checkbox" name="selected_services[]" value="${json}" class="svc-chk">
-                    <div style="width:100%;">
-                        <div style="font-weight:600; font-size:0.9rem;">${s.service} - ${s.name}</div>
-                        <div style="font-size:0.75rem; color:#64748b; display:flex; justify-content:space-between;">
-                            <span>Rate: ${s.rate}</span>
-                            <span>Min: ${s.min} | Max: ${s.max}</span>
-                        </div>
+// Render Services based on Selected Categories
+function renderFilteredServices() {
+    // Get checked categories
+    let selectedCats = [];
+    document.querySelectorAll('.cat-chk:checked').forEach(c => selectedCats.push(c.value));
+
+    if(selectedCats.length === 0) {
+        document.getElementById('imp_services_list').innerHTML = '<div style="padding:20px; text-align:center; color:red;">Please select at least one category above!</div>';
+        return;
+    }
+
+    let html = '';
+    let foundCount = 0;
+
+    allProviderServices.forEach(s => {
+        let sCat = s.category ? s.category.trim() : 'Uncategorized';
+        
+        if(selectedCats.includes(sCat)) {
+            // FIX: Use encodeURIComponent + btoa to safe-encode emojis/utf8
+            let safeJson = btoa(encodeURIComponent(JSON.stringify(s)));
+            
+            html += `
+            <div style="padding:10px; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:center;">
+                <input type="checkbox" name="selected_services[]" value="${safeJson}" class="svc-chk">
+                <div style="width:100%;">
+                    <div style="font-weight:600; font-size:0.9rem;">${s.service} - ${s.name}</div>
+                    <div style="font-size:0.75rem; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
+                        <span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px;">${sCat}</span>
+                        <span>Rate: ${s.rate} | Min: ${s.min} | Max: ${s.max}</span>
                     </div>
-                </div>`;
-            });
-        } else {
-            html = '<div style="padding:20px;">No services found in this category.</div>';
+                </div>
+            </div>`;
+            foundCount++;
         }
-        document.getElementById('imp_services_list').innerHTML = html;
     });
+
+    if(foundCount === 0) {
+        html = '<div style="padding:20px; text-align:center;">No services found for selected categories.</div>';
+    }
+    
+    document.getElementById('imp_services_list').innerHTML = html;
 }
 
-function toggleAll(source) {
-    let checkboxes = document.querySelectorAll('.svc-chk');
-    checkboxes.forEach(c => c.checked = source.checked);
+function toggleAllServices(source) {
+    document.querySelectorAll('.svc-chk').forEach(c => c.checked = source.checked);
 }
 </script>
 
