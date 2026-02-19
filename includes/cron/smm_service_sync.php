@@ -141,11 +141,15 @@ try {
             if ($existing) {
                 if ($existing['manually_deleted'] == 1) continue;
 
-                // Update Existing Service
-                $sql = "UPDATE smm_services SET name=?, category=?, base_price=?, service_rate=?, min=?, max=?, avg_time=?, description=?, has_refill=?, has_cancel=?, service_type=?, dripfeed=?, is_active=1 WHERE id=?";
-                $db->prepare($sql)->execute([$name, $cat, $base_price_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip, $existing['id']]);
+                // 🚀 FIXED: Removed `name=?` and `category=?` from this query!
+                // Ab tumhari set ki hui category aur name safe rahenge!
+                $sql = "UPDATE smm_services SET base_price=?, service_rate=?, min=?, max=?, avg_time=?, description=?, has_refill=?, has_cancel=?, service_type=?, dripfeed=?, is_active=1 WHERE id=?";
+                $db->prepare($sql)->execute([$base_price_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip, $existing['id']]);
                 $upd_count++;
             } else {
+                // 🚀 FIXED: Auto-Insert block ko maine comment kar diya hai.
+                // Ab system khud se nayi services add nahi karega jab tak tum admin panel se import nahi karte!
+                /*
                 // Insert New Service
                 $sql = "INSERT INTO smm_services (provider_id, service_id, name, category, base_price, service_rate, min, max, avg_time, description, has_refill, has_cancel, service_type, dripfeed, is_active, manually_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)";
                 $db->prepare($sql)->execute([$provider['id'], $sid, $name, $cat, $base_price_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip]);
@@ -156,6 +160,7 @@ try {
                    ->execute([$new_id, $name, $cat, $selling_price]);
                    
                 $new_count++;
+                */
             }
         }
 
