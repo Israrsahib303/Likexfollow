@@ -189,26 +189,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     // IMPORT SERVICES
     if ($_POST['action'] == 'import_selected') {
         $count = 0;
-        // 🚀 LIVE PROFIT CAPTURE: Jo percentage box mein hogi, directly yahan aayegi!
+        // 🚀 LIVE PROFIT CAPTURE
         $profit = (float)$_POST['profit_percent']; 
         $target_cat_id = (int)$_POST['target_cat_id'];
         $provider_id = (int)$_POST['provider_id'];
         $last_error = "";
         
-        // 🚀 SMART CURRENCY FETCH (Gets real dynamic rate from DB Settings directly)
+        // 🚀 SMART CURRENCY FETCH
         try {
-            $stmt_rate = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'currency_conversion_rate'");
+            $stmt_rate = $db->prepare("SELECT setting_value FROM settings WHERE setting_key IN ('currency_conversion_rate', 'exchange_rate', 'currency_rate', 'usd_rate') AND setting_value > 0 LIMIT 1");
             $stmt_rate->execute();
             $db_rate = $stmt_rate->fetchColumn();
-            
-            if (empty($db_rate)) {
-                // Fallback: Agar setting key ka naam 'exchange_rate' ho
-                $stmt_rate = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'exchange_rate'");
-                $stmt_rate->execute();
-                $db_rate = $stmt_rate->fetchColumn();
-            }
-            
-            $usd_rate = ($db_rate > 0) ? (float)$db_rate : 1.00; // Final Rate variable
+            $usd_rate = ($db_rate > 0) ? (float)$db_rate : 1.00;
         } catch (Exception $e) {
             $usd_rate = 1.00; 
         }
@@ -218,7 +210,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         
         if ($localCat) {
             $finalCatName = $localCat['main_app'] . ' - ' . $localCat['sub_cat_name'];
-            // Truncate category name to 250 chars to avoid SQL error
             $finalCatName = substr($finalCatName, 0, 250);
             
             if (!empty($_POST['selected_services'])) {
@@ -245,12 +236,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                     if($s) {
                         // 🚀 DYNAMIC CURRENCY & LIVE PROFIT BOX % APPLIED HERE
                         $providerRateUSD = (float)$s['rate'];
-                        $providerRateConverted = $providerRateUSD * $usd_rate; // Direct Multiplied by Finance Settings Rate!
-                        $sellingRateConverted = $providerRateConverted * (1 + ($profit / 100)); // Applying Custom Output Profit
+                        $providerRateConverted = $providerRateUSD * $usd_rate; // Cost base in Website Currency
+                        $sellingRateConverted = $providerRateConverted * (1 + ($profit / 100)); // Final Selling Price
                         
                         // Safety Checks
-                        $sName = substr($s['name'], 0, 250); // Prevent 'Data too long'
-                        $sType = !empty($s['type']) ? ucfirst($s['type']) : 'Default'; // Ensure valid type
+                        $sName = substr($s['name'], 0, 250);
+                        $sType = !empty($s['type']) ? ucfirst($s['type']) : 'Default';
                         
                         try {
                             $stmt->execute([
@@ -262,10 +253,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                                 $sellingRateConverted,  
                                 $s['min'], 
                                 $s['max'], 
-                                'Instant', // Default avg_time
-                                '',        // Default description
-                                0,         // Default refill
-                                0,         // Default cancel
+                                'Instant',
+                                '',
+                                0,
+                                0,
                                 $sType
                             ]);
                             $count++;
@@ -297,7 +288,7 @@ try {
 } catch (Exception $e) { $cats = []; }
 
 // 🚀 FETCH GLOBAL PROFIT MARGIN FOR THE INPUT FIELD
-$global_profit = 20; // fallback if setting is totally missing
+$global_profit = 20; 
 try {
     $stmt_profit = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'profit_margin'");
     $stmt_profit->execute();
@@ -307,23 +298,24 @@ try {
     }
 } catch (Exception $e) {}
 
-// 🚀 FETCH GLOBAL EXCHANGE RATE FOR JAVASCRIPT UI DISPLAY
+// 🚀 FETCH GLOBAL EXCHANGE RATE & SYMBOL FOR JAVASCRIPT UI DISPLAY
 $js_usd_rate = 1.00;
+$js_currency_sym = '₨';
 try {
-    $stmt_rate_js = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'currency_conversion_rate'");
+    $stmt_rate_js = $db->prepare("SELECT setting_value FROM settings WHERE setting_key IN ('currency_conversion_rate', 'exchange_rate', 'currency_rate', 'usd_rate') AND setting_value > 0 LIMIT 1");
     $stmt_rate_js->execute();
     $db_rate_js = $stmt_rate_js->fetchColumn();
     
-    if (empty($db_rate_js)) {
-        $stmt_rate_js = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'exchange_rate'");
-        $stmt_rate_js->execute();
-        $db_rate_js = $stmt_rate_js->fetchColumn();
-    }
     $js_usd_rate = ($db_rate_js > 0) ? (float)$db_rate_js : 1.00;
 } catch (Exception $e) {}
 
+try {
+    $stmt_sym = $db->prepare("SELECT setting_value FROM settings WHERE setting_key IN ('currency_symbol', 'currency_code', 'currency') AND setting_value != '' LIMIT 1");
+    $stmt_sym->execute();
+    $db_sym = $stmt_sym->fetchColumn();
+    if($db_sym) $js_currency_sym = $db_sym;
+} catch (Exception $e) {}
 
-// --- FIXED: POPULATE MAIN APPS (DB + BUILT-IN) ---
 $builtInApps = [
     'Instagram', 'Facebook', 'TikTok', 'YouTube', 'Twitter', 'Spotify', 
     'Telegram', 'Snapchat', 'LinkedIn', 'Twitch', 'Discord', 'Website Traffic', 
@@ -331,7 +323,6 @@ $builtInApps = [
 ];
 
 try {
-    // Get Apps from DB
     $dbApps = $db->query("SELECT DISTINCT main_app FROM smm_sub_categories WHERE main_app != ''")->fetchAll(PDO::FETCH_COLUMN);
 } catch (Exception $e) { $dbApps = []; }
 
@@ -343,7 +334,6 @@ sort($mainApps);
     :root { --primary: #6366f1; --glass: rgba(255, 255, 255, 0.95); --border: #e2e8f0; }
     body { background: #f8fafc; font-family: 'Inter', sans-serif; }
 
-    /* Glass Header */
     .glass-header {
         background: var(--glass); backdrop-filter: blur(10px);
         border-bottom: 1px solid var(--border); padding: 20px;
@@ -351,7 +341,6 @@ sort($mainApps);
         position: sticky; top: 0; z-index: 50;
     }
 
-    /* Cards & Grid */
     .cat-grid { display: grid; gap: 15px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); padding: 20px; }
     .cat-card {
         background: white; border-radius: 16px; padding: 20px;
@@ -369,13 +358,11 @@ sort($mainApps);
 
     .keyword-tag { background: #f1f5f9; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; color: #64748b; margin-top: 5px; display: inline-block; }
 
-    /* Modern Buttons */
     .btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
     .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
     .btn-danger { background: #fee2e2; color: #ef4444; }
     .btn-soft { background: #f1f5f9; color: #334155; }
 
-    /* Input & Search */
     .search-input {
         padding: 10px 20px; border-radius: 30px; border: 1px solid var(--border);
         width: 250px; outline: none; transition: 0.3s;
@@ -388,7 +375,6 @@ sort($mainApps);
         min-width: 150px;
     }
 
-    /* Modal (Heavy) */
     .modal-overlay {
         position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
         backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center;
@@ -397,7 +383,7 @@ sort($mainApps);
     .modal-overlay.active { display: flex; opacity: 1; }
     
     .modal-box {
-        background: white; width: 95%; max-width: 700px; /* Wider for new import layout */
+        background: white; width: 95%; max-width: 700px;
         border-radius: 24px; padding: 30px; max-height: 90vh; overflow-y: auto;
         transform: scale(0.9); transition: 0.3s;
     }
@@ -407,7 +393,6 @@ sort($mainApps);
     .form-control { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: #f8fafc; outline: none; }
     .form-control:focus { border-color: var(--primary); background: white; }
 
-    /* Custom Checkbox Grid */
     .checkbox-grid {
         display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
         max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px;
@@ -619,7 +604,7 @@ sort($mainApps);
                 <div style="display:flex; gap:10px; align-items:center;">
                     <div style="flex:1;">
                         <label class="form-label">Profit %</label>
-                        <input type="number" name="profit_percent" value="<?= $global_profit ?>" class="form-control">
+                        <input type="number" name="profit_percent" value="<?= $global_profit ?>" class="form-control" onkeyup="if(document.querySelectorAll('.cat-chk:checked').length > 0) renderFilteredServices()" onchange="if(document.querySelectorAll('.cat-chk:checked').length > 0) renderFilteredServices()">
                     </div>
                     <div style="flex:2;">
                         <label class="form-label">&nbsp;</label>
@@ -634,16 +619,17 @@ sort($mainApps);
 
 <script>
 // --- GLOBAL DATA STORE ---
-let allProviderServices = []; // Stores all fetched services
+let allProviderServices = []; 
 let currentCatId = 0;
-// 🚀 INJECT PHP EXCHANGE RATE INTO JS
+
+// 🚀 INJECT PHP EXCHANGE RATE & SYMBOL INTO JS
 let panelCurrencyRate = <?= $js_usd_rate ?>; 
+let panelCurrencySym = "<?= htmlspecialchars($js_currency_sym) ?>";
 
 // --- UI INTERACTIONS ---
 function openModal(mode) {
     document.getElementById('mainModal').classList.add('active');
     
-    // Reset Data
     allProviderServices = [];
     document.getElementById('cat_checkboxes').innerHTML = '';
     document.getElementById('imp_services_list').innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">Select Provider First</div>';
@@ -674,7 +660,6 @@ function switchTab(tab) {
     document.getElementById('view_details').style.display = (tab === 'details') ? 'block' : 'none';
     document.getElementById('view_import').style.display = (tab === 'import') ? 'block' : 'none';
     
-    // Check if ID exists for import
     if(tab === 'import') {
         if(currentCatId == 0) {
             document.getElementById('new_cat_warning').style.display = 'block';
@@ -751,7 +736,6 @@ function fetchProviderData(selectElement) {
     
     document.getElementById('imp_provider_id_hidden').value = pid;
     
-    // --- 🚀 AUTO FETCH PROFIT PERCENTAGE FROM DROPDOWN ---
     let selectedOption = selectElement.options[selectElement.selectedIndex];
     let profit = selectedOption.getAttribute('data-profit');
     if(profit) {
@@ -766,7 +750,7 @@ function fetchProviderData(selectElement) {
     document.getElementById('cat_checkboxes').innerHTML = '<div style="grid-column:1/-1; text-align:center;"><i class="fa fa-spinner fa-spin"></i> Loading Data...</div>';
 
     fetch('', { method: 'POST', body: fd })
-    .then(r => r.text()) // Get text first to debug
+    .then(r => r.text())
     .then(text => {
         try { return JSON.parse(text); } 
         catch (e) { console.error("Bad JSON:", text); throw new Error("Invalid JSON from Server"); }
@@ -774,14 +758,11 @@ function fetchProviderData(selectElement) {
     .then(d => {
         if(d.error) { alert("API Error: " + d.error); return; }
         
-        // Store services globally
         allProviderServices = d.services || [];
         
-        // Render Categories Checkboxes
         let html = '';
         if(d.categories && d.categories.length > 0) {
             d.categories.forEach(c => {
-                // Checkbox ID is hash of name
                 let cleanName = c.replace(/[^a-zA-Z0-9]/g, '');
                 html += `
                 <label class="chk-item" data-name="${c.toLowerCase()}">
@@ -800,7 +781,6 @@ function fetchProviderData(selectElement) {
     });
 }
 
-// Filter Category Checkboxes (Search Bar)
 function filterCheckboxList(query) {
     let q = query.toLowerCase();
     document.querySelectorAll('.chk-item').forEach(item => {
@@ -811,16 +791,14 @@ function filterCheckboxList(query) {
 
 function toggleAllCats(source) {
     document.querySelectorAll('.cat-chk').forEach(c => {
-        // Only toggle visible ones (if filtered)
         if(c.closest('.chk-item').style.display !== 'none') {
             c.checked = source.checked;
         }
     });
 }
 
-// Render Services based on Selected Categories
+// 🚀 REVERSE CALCULATED DISPLAY (LIVE PROFIT INTEGRATION)
 function renderFilteredServices() {
-    // Get checked categories
     let selectedCats = [];
     document.querySelectorAll('.cat-chk:checked').forEach(c => selectedCats.push(c.value));
 
@@ -829,6 +807,7 @@ function renderFilteredServices() {
         return;
     }
 
+    let profitPercent = parseFloat(document.querySelector('input[name="profit_percent"]').value) || 0;
     let html = '';
     let foundCount = 0;
 
@@ -836,12 +815,19 @@ function renderFilteredServices() {
         let sCat = s.category ? s.category.trim() : 'Uncategorized';
         
         if(selectedCats.includes(sCat)) {
-            // FIX: Use encodeURIComponent + btoa to safe-encode emojis/utf8
             let safeJson = btoa(encodeURIComponent(JSON.stringify(s)));
             
-            // 🚀 FRONTEND CONVERTED RATE (USD and Converted PKR Dono Dikhayega)
+            // Raw API USD Rate
             let rawRate = parseFloat(s.rate);
-            let convertedCost = (rawRate * panelCurrencyRate).toFixed(4);
+            
+            // Base Cost in Website Currency (PKR/INR/etc)
+            let baseLocalCost = rawRate * panelCurrencyRate;
+            
+            // Final Selling Price in Website Currency (with profit applied)
+            let finalSellingPriceLocal = baseLocalCost * (1 + (profitPercent / 100));
+            
+            // Custom Reverse-Calculated USD (Dynamically updates with profit!)
+            let customUsdDisplay = finalSellingPriceLocal / panelCurrencyRate;
             
             html += `
             <div style="padding:10px; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:center;">
@@ -850,7 +836,11 @@ function renderFilteredServices() {
                     <div style="font-weight:600; font-size:0.9rem;">${s.service} - ${s.name}</div>
                     <div style="font-size:0.75rem; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
                         <span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px;">${sCat}</span>
-                        <span style="font-weight:bold; color:#16a34a;">Cost: $${rawRate.toFixed(4)} USD (≈ ₨${convertedCost}) | Min: ${s.min} | Max: ${s.max}</span>
+                        <span style="font-weight:bold; color:#16a34a;">
+                            Selling Price: ${panelCurrencySym}${finalSellingPriceLocal.toFixed(4)} 
+                            <span style="color:#64748b; font-weight:normal;">(≈ $${customUsdDisplay.toFixed(4)} USD)</span> 
+                            | Min: ${s.min} | Max: ${s.max}
+                        </span>
                     </div>
                 </div>
             </div>`;
