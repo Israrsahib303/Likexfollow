@@ -189,32 +189,97 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     // IMPORT SERVICES
     if ($_POST['action'] == 'import_selected') {
         $count = 0;
-        $profit = (float)$_POST['profit_percent'];
+        // 🚀 LIVE PROFIT CAPTURE: Jo percentage box mein hogi, directly yahan aayegi!
+        $profit = (float)$_POST['profit_percent']; 
         $target_cat_id = (int)$_POST['target_cat_id'];
         $provider_id = (int)$_POST['provider_id'];
+        $last_error = "";
+        
+        // 🚀 SMART CURRENCY FETCH (Gets real dynamic rate from DB Settings directly)
+        try {
+            $stmt_rate = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'currency_conversion_rate'");
+            $stmt_rate->execute();
+            $db_rate = $stmt_rate->fetchColumn();
+            
+            if (empty($db_rate)) {
+                // Fallback: Agar setting key ka naam 'exchange_rate' ho
+                $stmt_rate = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'exchange_rate'");
+                $stmt_rate->execute();
+                $db_rate = $stmt_rate->fetchColumn();
+            }
+            
+            $usd_rate = ($db_rate > 0) ? (float)$db_rate : 1.00; // Final Rate variable
+        } catch (Exception $e) {
+            $usd_rate = 1.00; 
+        }
         
         // Critical Check: Ensure Target Category Exists
         $localCat = $db->query("SELECT main_app, sub_cat_name FROM smm_sub_categories WHERE id=$target_cat_id")->fetch();
         
         if ($localCat) {
             $finalCatName = $localCat['main_app'] . ' - ' . $localCat['sub_cat_name'];
+            // Truncate category name to 250 chars to avoid SQL error
+            $finalCatName = substr($finalCatName, 0, 250);
             
             if (!empty($_POST['selected_services'])) {
-                $stmt = $db->prepare("INSERT INTO smm_services (service_id, provider_id, name, category, rate, min, max, type, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                $sql = "INSERT INTO smm_services 
+                        (provider_id, service_id, name, category, base_price, service_rate, min, max, avg_time, description, has_refill, has_cancel, service_type, dripfeed, is_active, manually_deleted) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0)
+                        ON DUPLICATE KEY UPDATE 
+                        name = VALUES(name),
+                        category = VALUES(category),
+                        base_price = VALUES(base_price),
+                        service_rate = VALUES(service_rate),
+                        min = VALUES(min),
+                        max = VALUES(max),
+                        service_type = VALUES(service_type),
+                        is_active = 1,
+                        manually_deleted = 0";
+                
+                $stmt = $db->prepare($sql);
+                
                 foreach ($_POST['selected_services'] as $svcRaw) {
-                    // FIX: Robust Decoding (Handles Special Chars/Emojis)
                     $jsonStr = rawurldecode(base64_decode($svcRaw));
                     $s = json_decode($jsonStr, true);
                     
                     if($s) {
-                        $newRate = $s['rate'] * (1 + ($profit / 100));
+                        // 🚀 DYNAMIC CURRENCY & LIVE PROFIT BOX % APPLIED HERE
+                        $providerRateUSD = (float)$s['rate'];
+                        $providerRateConverted = $providerRateUSD * $usd_rate; // Direct Multiplied by Finance Settings Rate!
+                        $sellingRateConverted = $providerRateConverted * (1 + ($profit / 100)); // Applying Custom Output Profit
+                        
+                        // Safety Checks
+                        $sName = substr($s['name'], 0, 250); // Prevent 'Data too long'
+                        $sType = !empty($s['type']) ? ucfirst($s['type']) : 'Default'; // Ensure valid type
+                        
                         try {
-                            $stmt->execute([$s['service'], $provider_id, $s['name'], $finalCatName, $newRate, $s['min'], $s['max'], $s['type']]);
+                            $stmt->execute([
+                                $provider_id, 
+                                $s['service'], 
+                                $sName, 
+                                $finalCatName, 
+                                $providerRateConverted, 
+                                $sellingRateConverted,  
+                                $s['min'], 
+                                $s['max'], 
+                                'Instant', // Default avg_time
+                                '',        // Default description
+                                0,         // Default refill
+                                0,         // Default cancel
+                                $sType
+                            ]);
                             $count++;
-                        } catch(Exception $e) { /* Ignore Duplicates */ }
+                        } catch(Exception $e) { 
+                            $last_error = $e->getMessage();
+                        }
                     }
                 }
-                $success = "Successfully Imported $count Services! 💰";
+                
+                if($count > 0) {
+                    $success = "Successfully Synced/Imported $count Services at 1 USD = $usd_rate Rate! 💰";
+                } else {
+                    $error = "❌ Import Failed!<br><b>Last Error:</b> " . $last_error;
+                }
             }
         } else {
             $error = "Error: Target Category not found. Please save the category first.";
@@ -230,6 +295,33 @@ try {
 try {
     $cats = $db->query("SELECT * FROM smm_sub_categories ORDER BY main_app ASC, sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) { $cats = []; }
+
+// 🚀 FETCH GLOBAL PROFIT MARGIN FOR THE INPUT FIELD
+$global_profit = 20; // fallback if setting is totally missing
+try {
+    $stmt_profit = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'profit_margin'");
+    $stmt_profit->execute();
+    $fetched_profit = $stmt_profit->fetchColumn();
+    if (is_numeric($fetched_profit)) {
+        $global_profit = (float)$fetched_profit;
+    }
+} catch (Exception $e) {}
+
+// 🚀 FETCH GLOBAL EXCHANGE RATE FOR JAVASCRIPT UI DISPLAY
+$js_usd_rate = 1.00;
+try {
+    $stmt_rate_js = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'currency_conversion_rate'");
+    $stmt_rate_js->execute();
+    $db_rate_js = $stmt_rate_js->fetchColumn();
+    
+    if (empty($db_rate_js)) {
+        $stmt_rate_js = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'exchange_rate'");
+        $stmt_rate_js->execute();
+        $db_rate_js = $stmt_rate_js->fetchColumn();
+    }
+    $js_usd_rate = ($db_rate_js > 0) ? (float)$db_rate_js : 1.00;
+} catch (Exception $e) {}
+
 
 // --- FIXED: POPULATE MAIN APPS (DB + BUILT-IN) ---
 $builtInApps = [
@@ -479,13 +571,14 @@ sort($mainApps);
                 <h4 style="margin:0 0 10px 0; color:#0284c7;">Fetch from Provider</h4>
                 
                 <label class="form-label">1. Choose API Provider</label>
-                <select id="imp_provider" class="form-control" onchange="fetchProviderData(this.value)">
-                    <option value="">Select Provider...</option>
+                <select id="imp_provider" class="form-control" onchange="fetchProviderData(this)">
+                    <option value="" data-profit="<?= $global_profit ?>">Select Provider...</option>
                     <?php if(!empty($providers)): ?>
                         <?php foreach($providers as $p): 
                             $pName = !empty($p['domain']) ? $p['domain'] : (!empty($p['name']) ? $p['name'] : 'Provider #'.$p['id']);
+                            $pProfit = (isset($p['profit_margin']) && $p['profit_margin'] != '') ? $p['profit_margin'] : $global_profit;
                         ?>
-                            <option value="<?= $p['id'] ?>"><?= htmlspecialchars($pName) ?></option>
+                            <option value="<?= $p['id'] ?>" data-profit="<?= htmlspecialchars($pProfit) ?>"><?= htmlspecialchars($pName) ?></option>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <option value="" disabled>No Providers Found!</option>
@@ -526,7 +619,7 @@ sort($mainApps);
                 <div style="display:flex; gap:10px; align-items:center;">
                     <div style="flex:1;">
                         <label class="form-label">Profit %</label>
-                        <input type="number" name="profit_percent" value="20" class="form-control">
+                        <input type="number" name="profit_percent" value="<?= $global_profit ?>" class="form-control">
                     </div>
                     <div style="flex:2;">
                         <label class="form-label">&nbsp;</label>
@@ -543,6 +636,8 @@ sort($mainApps);
 // --- GLOBAL DATA STORE ---
 let allProviderServices = []; // Stores all fetched services
 let currentCatId = 0;
+// 🚀 INJECT PHP EXCHANGE RATE INTO JS
+let panelCurrencyRate = <?= $js_usd_rate ?>; 
 
 // --- UI INTERACTIONS ---
 function openModal(mode) {
@@ -650,9 +745,18 @@ function filterCats() {
 }
 
 // --- NEW ROBUST API LOGIC (FETCH ONCE, FILTER LOCALLY) ---
-function fetchProviderData(pid) {
+function fetchProviderData(selectElement) {
+    let pid = selectElement.value;
     if(!pid) return;
+    
     document.getElementById('imp_provider_id_hidden').value = pid;
+    
+    // --- 🚀 AUTO FETCH PROFIT PERCENTAGE FROM DROPDOWN ---
+    let selectedOption = selectElement.options[selectElement.selectedIndex];
+    let profit = selectedOption.getAttribute('data-profit');
+    if(profit) {
+        document.querySelector('input[name="profit_percent"]').value = profit;
+    }
     
     let fd = new FormData();
     fd.append('ajax_action', 'get_provider_data');
@@ -735,6 +839,10 @@ function renderFilteredServices() {
             // FIX: Use encodeURIComponent + btoa to safe-encode emojis/utf8
             let safeJson = btoa(encodeURIComponent(JSON.stringify(s)));
             
+            // 🚀 FRONTEND CONVERTED RATE (USD and Converted PKR Dono Dikhayega)
+            let rawRate = parseFloat(s.rate);
+            let convertedCost = (rawRate * panelCurrencyRate).toFixed(4);
+            
             html += `
             <div style="padding:10px; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:center;">
                 <input type="checkbox" name="selected_services[]" value="${safeJson}" class="svc-chk">
@@ -742,7 +850,7 @@ function renderFilteredServices() {
                     <div style="font-weight:600; font-size:0.9rem;">${s.service} - ${s.name}</div>
                     <div style="font-size:0.75rem; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
                         <span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px;">${sCat}</span>
-                        <span>Rate: ${s.rate} | Min: ${s.min} | Max: ${s.max}</span>
+                        <span style="font-weight:bold; color:#16a34a;">Cost: $${rawRate.toFixed(4)} USD (≈ ₨${convertedCost}) | Min: ${s.min} | Max: ${s.max}</span>
                     </div>
                 </div>
             </div>`;
