@@ -113,6 +113,12 @@ try {
         
         // If service matches an existing app, add it. Otherwise, IGNORE it (Deletes Others).
         if ($app_name) {
+            
+            // 🔥 🔥 YAHAN PE CUSTOM DISCOUNT LOGIC APPLY HOGA 🔥 🔥
+            // Helper function ko call kiya hai (from helpers.php)
+            $custom_rate = get_final_user_price($user_id, $s['provider_id'], $s['category'], $s['id'], $s['service_rate']);
+            $s['service_rate'] = $custom_rate;
+            
             $grouped_apps[$app_name]['services'][] = $s; 
             
             // Build JSON Data
