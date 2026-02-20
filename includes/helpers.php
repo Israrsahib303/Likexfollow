@@ -43,27 +43,17 @@ try {
 //      NEW: CURRENCY CONVERTER SYSTEM
 // ==========================================
 
-// ==========================================
-//      UPDATED: DYNAMIC CURRENCY SYSTEM
-// ==========================================
-
 function getCurrencyList() {
-    global $settings; // Admin settings fetch karein
+    global $settings; 
 
-    // Admin Panel se USD Rate lein (Agar set nahi hai to Default 280)
     $usd_to_pkr_rate = (float)($settings['currency_conversion_rate'] ?? 280.00);
     
-    // PKR se USD ka rate nikalne ka formula (1 / 280)
-    // Avoid division by zero error
     if ($usd_to_pkr_rate <= 0) $usd_to_pkr_rate = 280.00;
     $pkr_to_usd = 1 / $usd_to_pkr_rate;
 
-    // Base Currency is always PKR (Rate = 1)
-    // Baaki currencies ko USD ke hisaab se auto-adjust karein
     return [
         'PKR' => ['rate' => 1,              'symbol' => 'Rs',  'flag' => '🇵🇰', 'name' => 'Pakistani Rupee'],
         'USD' => ['rate' => $pkr_to_usd,    'symbol' => '$',   'flag' => '🇺🇸', 'name' => 'US Dollar'],
-        // Baki currencies ko bhi dynamic adjust kar diya hai (approximate ratios based on USD)
         'INR' => ['rate' => $pkr_to_usd * 83,   'symbol' => '₹',   'flag' => '🇮🇳', 'name' => 'Indian Rupee'],
         'GBP' => ['rate' => $pkr_to_usd * 0.79, 'symbol' => '£',   'flag' => '🇬🇧', 'name' => 'British Pound'],
         'EUR' => ['rate' => $pkr_to_usd * 0.92, 'symbol' => '€',   'flag' => '🇪🇺', 'name' => 'Euro'],
@@ -75,27 +65,19 @@ function getCurrencyList() {
 
 function getSelectedCurrency() {
     $list = getCurrencyList();
-    $code = $_COOKIE['site_currency'] ?? 'PKR'; // Default PKR
+    $code = $_COOKIE['site_currency'] ?? 'PKR'; 
     
-    // Agar cookie mein koi invalid code hai, toh wapas PKR kar do
     return isset($list[$code]) ? $list[$code] : $list['PKR'];
 }
 
-// Helper to get just the rate (for JS)
 function getCurrencyRate($code) {
     $list = getCurrencyList();
     return isset($list[$code]) ? $list[$code]['rate'] : 1;
 }
 
-// --- UPDATED formatCurrency Function (Auto Convert) ---
 function formatCurrency($amount, $symbol = null) {
-    // Get current selected currency
     $curr = getSelectedCurrency();
-    
-    // Convert Amount
     $converted_amount = (float)$amount * $curr['rate'];
-    
-    // Use provided symbol OR currency symbol
     $final_symbol = $symbol ?? $curr['symbol'];
     
     return $final_symbol . ' ' . number_format($converted_amount, 2);
@@ -236,34 +218,32 @@ function formatSmmAvgTime($minutesStr) {
 
     return trim($result);
 }
+
 // --- MAINTENANCE MODE CHECK ---
-// 1. Agar Maintenance Mode ON hai
 if (isset($GLOBALS['settings']['maintenance_mode']) && $GLOBALS['settings']['maintenance_mode'] == '1') {
     
     $currentPage = basename($_SERVER['PHP_SELF']);
     $currentDir = dirname($_SERVER['PHP_SELF']);
     
-    // 2. Admin Panel, Login Page, aur Maintenance Page ko chhor kar sabko block karo
     if (strpos($currentDir, '/panel') === false && 
         $currentPage != 'login.php' && 
         $currentPage != 'maintenance.php' && 
-        $currentPage != 'secret_entry.php' && // Ghost entry allowed
-        $currentPage != 'verify_login.php' && // OTP Allowed
+        $currentPage != 'secret_entry.php' && 
+        $currentPage != 'verify_login.php' && 
         $currentPage != 'admin_login.php') {
             
-        // Agar user ADMIN nahi hai, to Maintenance Page par bhejo
         if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
             header("Location: " . SITE_URL . "/maintenance.php");
             exit;
         }
     }
 }
+
 // --- ADMIN LOGGER FUNCTION ---
 function logActivity($action, $desc) {
     global $db;
     if (session_status() === PHP_SESSION_NONE) session_start();
     
-    // Sirf agar admin logged in hai tab hi log karo
     if (isset($_SESSION['is_admin']) && $_SESSION['is_admin']) {
         $admin_id = $_SESSION['user_id'];
         $ip = $_SERVER['REMOTE_ADDR'];
@@ -273,25 +253,21 @@ function logActivity($action, $desc) {
         } catch (Exception $e) { /* Silent Fail */ }
     }
 }
+
 // --- STAFF PERMISSION CHECKER ---
 function hasPermission($key) {
     global $db;
     if (session_status() === PHP_SESSION_NONE) session_start();
 
-    // 1. If Super Admin (ID 1), allow everything
     if (isset($_SESSION['user_id']) && $_SESSION['user_id'] == 1) return true;
 
-    // 2. Fetch User Permissions from DB
     if (isset($_SESSION['user_id'])) {
-        // Optimization: You can store permissions in SESSION during login to avoid DB calls
         $stmt = $db->prepare("SELECT permissions, role FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
 
-        // If Role is Admin, allow (Optional: Or enforce strict perms for admins too)
         if ($user && $user['role'] === 'admin') return true; 
 
-        // Check Specific Permission
         if ($user && !empty($user['permissions'])) {
             $perms = json_decode($user['permissions'], true);
             if (is_array($perms) && in_array($key, $perms)) {
@@ -300,5 +276,62 @@ function hasPermission($key) {
         }
     }
     return false;
+}
+
+// ==========================================
+// 🔥 OPTION 1: DISCOUNT ON PROFIT ONLY 🔥
+// ==========================================
+function get_final_user_price($user_id, $provider_id, $category_name, $service_id, $service_rate, $api_cost = null) {
+    global $db;
+    
+    // Agar user logged in nahi hai to base rate do
+    if (!$user_id || $user_id <= 0) return $service_rate;
+
+    // 1. Agar loop me $api_cost (base_price) nahi diya, toh Query karo
+    if ($api_cost === null) {
+        $stmt_cost = $db->prepare("SELECT base_price FROM smm_services WHERE id = ?");
+        $stmt_cost->execute([$service_id]);
+        $api_cost = (float) $stmt_cost->fetchColumn();
+    }
+    
+    // Fallback in case of DB issue
+    if ($api_cost <= 0) {
+        $api_cost = $service_rate / 2;
+    }
+
+    // 2. Fetch User Custom Rate from DB
+    $u = $db->query("SELECT custom_rate FROM users WHERE id = " . (int)$user_id)->fetch();
+    $global_rate = (float)($u['custom_rate'] ?? 0);
+    
+    $stmt = $db->prepare("SELECT target_type, custom_rate FROM user_custom_rates WHERE user_id = ? AND ( (target_type='provider' AND target_id=?) OR (target_type='category' AND target_id=?) OR (target_type='service' AND target_id=?) )");
+    $stmt->execute([$user_id, $provider_id, $category_name, $service_id]);
+    $rates = $stmt->fetchAll(PDO::FETCH_KEY_PAIR); 
+    
+    $final_percent = 0;
+    if (isset($rates['service'])) {
+        $final_percent = (float)$rates['service'];
+    } elseif (isset($rates['category'])) {
+        $final_percent = (float)$rates['category'];
+    } elseif (isset($rates['provider'])) {
+        $final_percent = (float)$rates['provider'];
+    } else {
+        $final_percent = $global_rate;
+    }
+    
+    // 🔥 NEW PROFIT LOGIC: Discount applies only to the Profit Margin!
+    $profit_margin = $service_rate - $api_cost;
+    
+    // Agar kisi service mein profit pehle se zero hai, usme discount nahi lagega!
+    if ($profit_margin <= 0) {
+        return max($api_cost, $service_rate); 
+    }
+    
+    // + means Surcharge (increases profit), - means Discount (decreases profit)
+    $adjusted_profit = $profit_margin * (1 + ($final_percent / 100));
+    
+    // API Cost will NEVER decrease!
+    $new_price = $api_cost + $adjusted_profit;
+    
+    return max($api_cost, $new_price); 
 }
 ?>
