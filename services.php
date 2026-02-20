@@ -193,7 +193,13 @@ body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color
                             </thead>
                             <tbody>
                                 <?php foreach ($list as $s): 
-                                    $rate = (float)$s['service_rate'];
+                                    // 🔥 CALCULATE CUSTOM PRICE IF USER IS LOGGED IN
+                                    $base_rate = (float)$s['service_rate'];
+                                    if ($user_id > 0) {
+                                        $base_rate = get_final_user_price($user_id, $s['provider_id'], $s['category'], $s['id'], $base_rate);
+                                    }
+                                    
+                                    $rate = $base_rate;
                                     if ($curr_code != 'PKR') $rate *= $curr_rate;
                                     
                                     // SEO Link Generation
