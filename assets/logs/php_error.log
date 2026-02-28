@@ -183,3 +183,6 @@
 [09-Feb-2026 01:27:02 Asia/Karachi] PHP Notice:  PHP Request Shutdown: [CLOSED] IMAP connection broken (server response) (errflg=2) in Unknown on line 0
 [09-Feb-2026 10:27:04 Asia/Karachi] PHP Notice:  PHP Request Shutdown: [CLOSED] IMAP connection broken (server response) (errflg=2) in Unknown on line 0
 [09-Feb-2026 14:47:05 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Can not authenticate to IMAP server: [CLOSED] IMAP connection broken (authenticate) (errflg=2) in Unknown on line 0
+[26-Feb-2026 00:45:14 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Can't connect to imap.hostinger.com,993: Connection timed out (errflg=1) in Unknown on line 0
+[26-Feb-2026 01:25:14 Asia/Karachi] PHP Notice:  PHP Request Shutdown: Can't connect to imap.hostinger.com,993: Connection timed out (errflg=1) in Unknown on line 0
+[28-Feb-2026 00:32:03 Asia/Karachi] PHP Notice:  PHP Request Shutdown: [CLOSED] IMAP connection broken (server response) (errflg=2) in Unknown on line 0
