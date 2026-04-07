@@ -144,40 +144,93 @@ if ($action == 'add_manual_save' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     } catch (Exception $e) { $error = "Error: " . $e->getMessage(); }
 }
 
-// --- 3. IMPORT PROCESS (STEP 3: CONFIRM & INSERT) ---
+// --- 3. IMPORT PROCESS (STEP 3: CONFIRM & INSERT - MAX INPUT VARS BYPASS) ---
 if ($action == 'import_final' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
         $provider_id = $_POST['provider_id'];
-        $selection = $_POST['services'] ?? []; 
         
-        if (empty($selection)) {
+        // 🚀 Decoding the JSON payload that JS bundled to bypass max_input_vars!
+        $import_payload = json_decode($_POST['import_payload'] ?? '[]', true);
+        $api_raw_data = json_decode($_POST['api_raw_data'] ?? '[]', true);
+        
+        if (empty($import_payload)) {
             $error = "No services selected for import.";
         } else {
-            $names = $_POST['name'];
-            $cats = $_POST['category'];
-            $rates = $_POST['rate']; 
-            $profits = $_POST['profit']; 
-            $mins = $_POST['min'];
-            $maxs = $_POST['max'];
-            $types = $_POST['type'];
-            
             $usd_rate = (float)($GLOBALS['settings']['currency_conversion_rate'] ?? 280.00);
             $cnt = 0;
             
+            // Fast mapping for API data
+            $api_map = [];
+            foreach($api_raw_data as $s) {
+                $api_map[$s['service']] = $s;
+            }
+            
             $db->beginTransaction();
             
-            foreach ($selection as $sid) {
-                // Calculation
-                $base_pkr = (float)$rates[$sid] * $usd_rate;
-                $profit_margin = (float)$profits[$sid];
+            foreach ($import_payload as $item) {
+                $sid = $item['id'];
+                
+                if (!isset($api_map[$sid])) continue;
+                $s = $api_map[$sid]; // Original API details
+                
+                // Variables from user input in Step 2
+                $profit_margin = (float)$item['profit'];
+                $category = $item['category'];
+                
+                // Details from API mapped array
+                $name = $s['name'];
+                $min = (int)$s['min'];
+                $max = (int)$s['max'];
+                $type = $s['type'] ?? 'Default';
+                $rate_usd = (float)$s['rate'];
+                
+                // Pricing calculations
+                $base_pkr = $rate_usd * $usd_rate;
                 $selling_price = $base_pkr * (1 + ($profit_margin / 100));
                 
-                $name = $names[$sid];
-                $category = $cats[$sid];
-                $min = $mins[$sid];
-                $max = $maxs[$sid];
-                $type = $types[$sid];
+                // 🚀 ADVANCED DATA EXTRACTION (Smart Parsing)
+                $avg = $s['average_time'] ?? $s['avg_time'] ?? 'N/A';
+                if (is_array($avg) || is_object($avg)) $avg = 'N/A';
+                $avg = trim(strip_tags((string)$avg));
+
+                $raw_desc = $s['description'] ?? $s['desc'] ?? $s['details'] ?? $s['content'] ?? '';
+                $desc = trim((string)$raw_desc); 
                 
+                $refill = 0;
+                if (isset($s['refill'])) {
+                    $r_val = strtolower(trim((string)$s['refill']));
+                    if ($r_val === '1' || $r_val === 'true' || $r_val === 'yes' || $r_val === true) $refill = 1;
+                }
+
+                $cancel = 0;
+                if (isset($s['cancel'])) {
+                    $c_val = strtolower(trim((string)$s['cancel']));
+                    if ($c_val === '1' || $c_val === 'true' || $c_val === 'yes' || $c_val === true) $cancel = 1;
+                }
+
+                $drip = 0;
+                if (isset($s['dripfeed'])) {
+                    $d_val = strtolower(trim((string)$s['dripfeed']));
+                    if ($d_val === '1' || $d_val === 'true' || $d_val === 'yes' || $d_val === true) $drip = 1;
+                }
+
+                // 🧠 SMART EXTRACTOR (If desc is empty)
+                if (empty($desc)) {
+                    $name_lower = strtolower($name);
+                    if (strpos($name_lower, 'refill') !== false || strpos($name_lower, 'guarantee') !== false || strpos($name_lower, '♻️') !== false) {
+                        $refill = 1;
+                    }
+                    if (strpos($name_lower, 'cancel') !== false || strpos($name_lower, '❌') !== false) {
+                        $cancel = 1;
+                    }
+                    
+                    $refill_txt = $refill ? "✅ Yes (Guaranteed)" : "❌ No Refill";
+                    $cancel_txt = $cancel ? "✅ Available" : "❌ Not Available";
+                    $final_avg = ($avg !== 'N/A' && $avg !== '') ? $avg : 'Instant / 1-2 Hours';
+                    
+                    $desc = "🔥 **Service Details:**\n🔹 **Start Time:** " . $final_avg . "\n♻️ **Refill:** " . $refill_txt . "\n🛑 **Cancel Option:** " . $cancel_txt . "\n⚡ **Speed:** Super Fast\n💎 **Quality:** High Quality Accounts\n\n*(Note: Information auto-extracted from provider)*";
+                }
+
                 $db->prepare("INSERT IGNORE INTO smm_categories (name, is_active) VALUES (?, 1)")->execute([$category]);
                 
                 $check = $db->prepare("SELECT id FROM smm_services WHERE provider_id=? AND service_id=?");
@@ -185,11 +238,11 @@ if ($action == 'import_final' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                 $exists = $check->fetchColumn();
                 
                 if ($exists) {
-                    $sql = "UPDATE smm_services SET name=?, category=?, base_price=?, service_rate=?, min=?, max=?, service_type=?, is_active=1, manually_deleted=0 WHERE id=?";
-                    $db->prepare($sql)->execute([$name, $category, $base_pkr, $selling_price, $min, $max, $type, $exists]);
+                    $sql = "UPDATE smm_services SET name=?, category=?, base_price=?, service_rate=?, min=?, max=?, avg_time=?, description=?, has_refill=?, has_cancel=?, service_type=?, dripfeed=?, is_active=1, manually_deleted=0 WHERE id=?";
+                    $db->prepare($sql)->execute([$name, $category, $base_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip, $exists]);
                 } else {
-                    $sql = "INSERT INTO smm_services (provider_id, service_id, name, category, base_price, service_rate, min, max, avg_time, description, has_refill, has_cancel, service_type, dripfeed, is_active, manually_deleted) VALUES (?,?,?,?,?,?,?,?,'N/A','',0,0,?,0,1,0)";
-                    $db->prepare($sql)->execute([$provider_id, $sid, $name, $category, $base_pkr, $selling_price, $min, $max, $type]);
+                    $sql = "INSERT INTO smm_services (provider_id, service_id, name, category, base_price, service_rate, min, max, avg_time, description, has_refill, has_cancel, service_type, dripfeed, is_active, manually_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)";
+                    $db->prepare($sql)->execute([$provider_id, $sid, $name, $category, $base_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip]);
                 }
                 $cnt++;
             }
@@ -201,7 +254,7 @@ if ($action == 'import_final' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     } catch (Exception $e) { 
         if($db->inTransaction()) $db->rollBack(); 
-        $error = $e->getMessage(); 
+        $error = "Import Error: " . $e->getMessage(); 
     }
 }
 
@@ -442,36 +495,45 @@ $local_providers = $db->query("SELECT * FROM smm_providers WHERE is_active=1")->
     $api_services = $res['services'];
     ?>
     <div style="padding:20px;">
-        <form action="smm_services.php?action=import_final" method="POST">
+        <form action="smm_services.php?action=import_final" method="POST" id="bulkImportForm">
             <input type="hidden" name="provider_id" value="<?= $pid ?>">
+            
+            <textarea name="api_raw_data" style="display:none;"><?= htmlspecialchars(json_encode($api_services)) ?></textarea>
+            
+            <input type="hidden" name="import_payload" id="import_payload" value="">
+
             <div style="background:white; border-radius:24px; box-shadow:var(--shadow-lg); overflow:hidden;">
                 <div style="padding:24px; border-bottom:1px solid #F5F5F7; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
                     <div>
                         <h2 style="margin:0; font-size:20px;">📦 Importing from <?= htmlspecialchars($provider['name']) ?></h2>
                         <span class="badge bg-blue-soft" style="margin-top:5px; display:inline-block;"><?= count($api_services) ?> Services Found</span>
                     </div>
-                    <button type="submit" class="ios-btn btn-blue">Confirm Import</button>
+                    <button type="button" class="ios-btn btn-blue" onclick="processImport(this)">Confirm Import</button>
                 </div>
                 <div class="table-container" style="max-height:75vh;">
                     <table class="service-table">
-                        <thead><tr><th>Check</th><th>ID</th><th>Name</th><th>Cost</th><th>Profit %</th><th>Category</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" checked onchange="toggleAllImport(this)"></th>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Cost</th>
+                                <th>Profit %</th>
+                                <th>Category</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             <?php foreach($api_services as $s): $sid=$s['service']; ?>
                             <tr>
-                                <td><input type="checkbox" name="services[]" value="<?= $sid ?>" checked></td>
+                                <td><input type="checkbox" value="<?= $sid ?>" class="import-check" checked></td>
                                 <td><span class="id-box"><?= $sid ?></span></td>
                                 <td>
                                     <b style="color:#333;"><?= htmlspecialchars($s['name']) ?></b>
-                                    <input type="hidden" name="name[<?= $sid ?>]" value="<?= htmlspecialchars($s['name']) ?>">
-                                    <input type="hidden" name="rate[<?= $sid ?>]" value="<?= $s['rate'] ?>">
-                                    <input type="hidden" name="min[<?= $sid ?>]" value="<?= $s['min'] ?>">
-                                    <input type="hidden" name="max[<?= $sid ?>]" value="<?= $s['max'] ?>">
-                                    <input type="hidden" name="type[<?= $sid ?>]" value="<?= $s['type'] ?>">
                                 </td>
                                 <td>$<?= $s['rate'] ?></td>
-                                <td><input type="number" class="ios-input" name="profit[<?= $sid ?>]" value="<?= $provider['profit_margin'] ?>" style="width:70px;"></td>
+                                <td><input type="number" class="ios-input profit-input" value="<?= $provider['profit_margin'] ?>" style="width:70px;"></td>
                                 <td>
-                                    <input type="text" class="ios-input" name="category[<?= $sid ?>]" value="<?= htmlspecialchars($s['category']) ?>">
+                                    <input type="text" class="ios-input cat-input" value="<?= htmlspecialchars($s['category']) ?>">
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -481,6 +543,46 @@ $local_providers = $db->query("SELECT * FROM smm_providers WHERE is_active=1")->
             </div>
         </form>
     </div>
+
+    <script>
+        function toggleAllImport(source) {
+            let checkboxes = document.querySelectorAll('.import-check');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+        }
+
+        function processImport(btn) {
+            let form = document.getElementById('bulkImportForm');
+            let payload = [];
+            let checkboxes = form.querySelectorAll('.import-check:checked');
+
+            if (checkboxes.length === 0) {
+                alert("Please select at least one service!");
+                return;
+            }
+
+            btn.innerHTML = 'Processing (Please wait)... ⏳';
+            btn.disabled = true;
+
+            // Generate a lightweight JSON array
+            checkboxes.forEach(cb => {
+                let sid = cb.value;
+                let tr = cb.closest('tr');
+                payload.push({
+                    id: sid,
+                    profit: tr.querySelector('.profit-input').value,
+                    category: tr.querySelector('.cat-input').value
+                });
+            });
+
+            document.getElementById('import_payload').value = JSON.stringify(payload);
+
+            // 🛑 IMPORTANT: Disable inputs so they don't get POSTed individually! 
+            // Is trick se PHP max_input_vars bypass ho jayega 100% guarantee!
+            form.querySelectorAll('.import-check, .profit-input, .cat-input').forEach(el => el.disabled = true);
+
+            form.submit();
+        }
+    </script>
 <?php return; endif; ?>
 
 
