@@ -24,6 +24,7 @@ manifest.php
 master_fix.php
 panel/
 premium_store.php
+proxy.php
 register.php
 reset_password.php
 robots.txt
@@ -32,6 +33,7 @@ service.php
 services.php
 sitemap.php
 sitemap.xml
+smm.php
 user/
 verify.php
 verify_login.php
