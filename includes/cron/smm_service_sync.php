@@ -110,19 +110,42 @@ try {
             $sid = (int)$s['service'];
             $seen_ids[] = $sid;
 
-            // Data Cleaning
+            // ====================================================
+            // 🚀 SMART DATA CLEANING & EXTRACTION LOGIC
+            // ====================================================
             $name = sanitize($s['name']);
             $cat = sanitize($s['category']);
             $min = (int)$s['min'];
             $max = (int)$s['max'];
-            $avg = sanitize($s['average_time'] ?? $s['avg_time'] ?? 'N/A');
-            $desc = sanitize($s['description'] ?? $s['desc'] ?? '');
             $type = sanitize($s['type'] ?? 'Default');
             
-            // Boolean Flags
-            $refill = (!empty($s['refill']) && ($s['refill'] == 1 || $s['refill'] === true)) ? 1 : 0;
-            $cancel = (!empty($s['cancel']) && ($s['cancel'] == 1 || $s['cancel'] === true)) ? 1 : 0;
-            $drip = (!empty($s['dripfeed']) && ($s['dripfeed'] == 1 || $s['dripfeed'] === true)) ? 1 : 0;
+            // 🧠 FIX AVG TIME
+            $avg = $s['average_time'] ?? $s['avg_time'] ?? 'N/A';
+            if (is_array($avg) || is_object($avg)) $avg = 'N/A';
+            $avg = sanitize(trim(strip_tags((string)$avg)));
+
+            // 🧠 FIX DESCRIPTION (Do NOT strip HTML tags completely)
+            $raw_desc = $s['description'] ?? $s['desc'] ?? $s['details'] ?? $s['content'] ?? '';
+            $desc = trim((string)$raw_desc); 
+            
+            // 🧠 FIX BOOLEAN FLAGS (Handle 1/0, true/false, "Yes"/"No")
+            $refill = 0;
+            if (isset($s['refill'])) {
+                $r_val = strtolower(trim((string)$s['refill']));
+                if ($r_val === '1' || $r_val === 'true' || $r_val === 'yes' || $r_val === true) $refill = 1;
+            }
+
+            $cancel = 0;
+            if (isset($s['cancel'])) {
+                $c_val = strtolower(trim((string)$s['cancel']));
+                if ($c_val === '1' || $c_val === 'true' || $c_val === 'yes' || $c_val === true) $cancel = 1;
+            }
+
+            $drip = 0;
+            if (isset($s['dripfeed'])) {
+                $d_val = strtolower(trim((string)$s['dripfeed']));
+                if ($d_val === '1' || $d_val === 'true' || $d_val === 'yes' || $d_val === true) $drip = 1;
+            }
 
             // --- PRICE CALCULATION (EXACT MATCH) ---
             $rate_usd = (float)$s['rate'];
@@ -133,18 +156,64 @@ try {
             // Selling Price (With your profit margin)
             $selling_price = $base_price_pkr * (1 + ($provider['profit_margin'] / 100));
 
-            // DB Check
-            $stmt = $db->prepare("SELECT id, manually_deleted FROM smm_services WHERE provider_id=? AND service_id=?");
+            // DB Check (Fetch existing description, avg_time, refill, etc. too!)
+            $stmt = $db->prepare("SELECT id, manually_deleted, description, avg_time, has_refill, has_cancel FROM smm_services WHERE provider_id=? AND service_id=?");
             $stmt->execute([$provider['id'], $sid]);
             $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($existing) {
                 if ($existing['manually_deleted'] == 1) continue;
 
+                // 1. Initial values set karo jo API se aai hain
+                $final_desc = $desc;
+                $final_refill = $refill;
+                $final_cancel = $cancel;
+                $final_avg = ($avg !== 'N/A' && $avg !== '') ? $avg : 'Instant / 1-2 Hours';
+
+                // 🧠 2. SMART EXTRACTOR: Agar API ne description NAHI bheji (provider nakhre kar raha hai)
+                if (empty($final_desc)) {
+                    $name_lower = strtolower($name);
+                    
+                    // Naam se REFILL detect karo
+                    if (strpos($name_lower, 'refill') !== false || strpos($name_lower, 'guarantee') !== false || strpos($name_lower, '♻️') !== false || strpos($name_lower, 'r30') !== false || strpos($name_lower, 'r60') !== false) {
+                        $final_refill = 1;
+                    }
+                    
+                    // Naam se CANCEL detect karo
+                    if (strpos($name_lower, 'cancel') !== false || strpos($name_lower, '❌') !== false) {
+                        $final_cancel = 1;
+                    }
+
+                    // Ek zordaar Auto-Description generate kar do
+                    $refill_txt = $final_refill ? "✅ Yes (Guaranteed)" : "❌ No Refill (Non-Guaranteed)";
+                    $cancel_txt = $final_cancel ? "✅ Available" : "❌ Not Available";
+                    
+                    $final_desc = "🔥 **Service Details:**\n";
+                    $final_desc .= "🔹 **Start Time:** " . $final_avg . "\n";
+                    $final_desc .= "♻️ **Refill:** " . $refill_txt . "\n";
+                    $final_desc .= "🛑 **Cancel Option:** " . $cancel_txt . "\n";
+                    $final_desc .= "⚡ **Speed:** Super Fast\n";
+                    $final_desc .= "💎 **Quality:** High Quality Accounts\n\n";
+                    $final_desc .= "*(Note: Information auto-extracted from provider)*";
+                }
+
+                // 3. Agar tumne Admin panel se manually koi Description/Refill set kar diya hai, 
+                // toh API ya Auto-Extractor usko kharab nahi karega! Priority hamesha tumhari!
+                if (!empty($existing['description']) && strpos($existing['description'], 'Auto-extracted') === false) {
+                    $final_desc = $existing['description'];
+                    $final_refill = $existing['has_refill'];
+                    $final_cancel = $existing['has_cancel'];
+                    $final_avg = $existing['avg_time'];
+                }
+
                 // 🚀 FIXED: Removed `name=?` and `category=?` from this query!
                 // Ab tumhari set ki hui category aur name safe rahenge!
                 $sql = "UPDATE smm_services SET base_price=?, service_rate=?, min=?, max=?, avg_time=?, description=?, has_refill=?, has_cancel=?, service_type=?, dripfeed=?, is_active=1 WHERE id=?";
-                $db->prepare($sql)->execute([$base_price_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip, $existing['id']]);
+                $db->prepare($sql)->execute([
+                    $base_price_pkr, $selling_price, $min, $max, 
+                    $final_avg, $final_desc, $final_refill, $final_cancel, 
+                    $type, $drip, $existing['id']
+                ]);
                 $upd_count++;
             } else {
                 // 🚀 FIXED: Auto-Insert block ko maine comment kar diya hai.
@@ -152,7 +221,7 @@ try {
                 /*
                 // Insert New Service
                 $sql = "INSERT INTO smm_services (provider_id, service_id, name, category, base_price, service_rate, min, max, avg_time, description, has_refill, has_cancel, service_type, dripfeed, is_active, manually_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)";
-                $db->prepare($sql)->execute([$provider['id'], $sid, $name, $cat, $base_price_pkr, $selling_price, $min, $max, $avg, $desc, $refill, $cancel, $type, $drip]);
+                $db->prepare($sql)->execute([$provider['id'], $sid, $name, $cat, $base_price_pkr, $selling_price, $min, $max, $final_avg, $final_desc, $final_refill, $final_cancel, $type, $drip]);
                 
                 // Log New
                 $new_id = $db->lastInsertId();
