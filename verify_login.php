@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         unset($_SESSION['temp_remember']);
 
         // Redirect
-        redirect($user['is_admin'] ? SITE_URL . '/panel/index.php' : SITE_URL . '/user/index.php');
+        redirect($user['is_admin'] ? SITE_URL . '/panel/index.php' : SITE_URL . '/user/smm_order.php');
 
     } else {
         $error = "Invalid or Expired OTP. Please try again.";
