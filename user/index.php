@@ -1,4 +1,12 @@
 <?php
+// ==========================================
+// 🚀 MASTER REDIRECT - SMM ONLY MODE 🚀
+// ==========================================
+// Jo bhi user is page par aayega, seedha SMM Order par redirect ho jayega!
+header("Location: smm_order.php");
+exit(); // Iske baad ka koi code run nahi hoga
+// ==========================================
+
 include '_header.php';
 
 // --- FETCH STATS ---
