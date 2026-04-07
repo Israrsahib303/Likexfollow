@@ -72,8 +72,8 @@ if (empty($ban_reason) && !isLoggedIn() && isset($_COOKIE['remember_me'])) {
                     $_SESSION['is_admin'] = 0; 
                     setcookie('remember_me', $token, time() + (86400 * 30), "/");
                     session_write_close();
-                    if (!headers_sent()) header("Location: user/index.php");
-                    echo "<script>window.location.href='user/index.php';</script>";
+                    if (!headers_sent()) header("Location: user/smm_order.php");
+                    echo "<script>window.location.href='user/smm_orde.php';</script>";
                     exit;
                 }
             }
