@@ -1,6 +1,9 @@
 <?php
 include '_header.php';
 
+// 🔥 FIX 1: User ID ko session se lazmi define kiya taake balance check fail na ho
+$user_id = (int)$_SESSION['user_id']; 
+
 // --- 1. SETTINGS & LOGO SETUP ---
 $db_logo = $settings['site_logo'] ?? '';
 if (file_exists("../assets/img/logo.png")) {
@@ -16,70 +19,82 @@ $wa_number = $settings['whatsapp_number'] ?? '+92 309 7856447';
 // --- 2. HANDLE PURCHASE ---
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['buy_product'])) {
     $p_id = (int)$_POST['product_id'];
-    $price = (float)$_POST['price'];
     
-    // Balance Check
-    $stmt_bal = $db->prepare("SELECT balance FROM users WHERE id = ?");
-    $stmt_bal->execute([$user_id]);
-    $current_bal = $stmt_bal->fetchColumn();
+    // 🔥 FIX 2: Security Patch - Hamesha DB se asli price fetch karein, Frontend (POST) par bharosa na karein!
+    $stmt_prod = $db->prepare("SELECT * FROM products WHERE id = ?");
+    $stmt_prod->execute([$p_id]);
+    $item = $stmt_prod->fetch();
 
-    if ($current_bal < $price) {
+    if (!$item) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({ 
-                    icon: 'error', 
-                    title: 'Insufficient Funds', 
-                    text: 'Please recharge your wallet.', 
-                    confirmButtonColor: '#7c3aed'
-                });
+                Swal.fire({ icon: 'error', title: 'Invalid Product', text: 'Yeh product mojood nahi hai.', confirmButtonColor: '#7c3aed' });
             });
         </script>";
     } else {
-        try {
-            $db->beginTransaction();
-            
-            // Deduct Amount
-            $db->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$price, $user_id]);
-            
-            // Generate Order
-            $code = 'INV-' . strtoupper(bin2hex(random_bytes(3))) . date('s');
-            $stmt = $db->prepare("INSERT INTO orders (user_id, product_id, total_price, status, code, created_at) VALUES (?, ?, ?, 'completed', ?, NOW())");
-            $stmt->execute([$user_id, $p_id, $price, $code]);
-            $order_db_id = $db->lastInsertId();
-            
-            // Ledger Entry
-            $db->prepare("INSERT INTO wallet_ledger (user_id, type, amount, ref_type, ref_id, note) VALUES (?, 'debit', ?, 'order', ?, 'Product Purchase')")->execute([$user_id, $price, $order_db_id]);
-            
-            $db->commit();
-            
-            // --- LIVE UPDATE BALANCE ---
-            $user_balance = $current_bal - $price; 
+        $price = (float)$item['price'];
 
-            // Fetch Item Data
-            $item = $db->query("SELECT name, icon, description, download_link, original_price FROM products WHERE id=$p_id")->fetch();
-            $item_icon = !empty($item['icon']) ? "../assets/img/".$item['icon'] : "https://via.placeholder.com/80";
-            
+        // Balance Check
+        $stmt_bal = $db->prepare("SELECT balance FROM users WHERE id = ?");
+        $stmt_bal->execute([$user_id]);
+        $current_bal = (float)$stmt_bal->fetchColumn();
+
+        if ($current_bal < $price) {
             echo "<script>
-                if ( window.history.replaceState ) {
-                    window.history.replaceState( null, null, window.location.href );
-                }
-                window.onload = function() {
-                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#7c3aed', '#a78bfa'] });
-                    showReceipt(
-                        '$code', 
-                        '".date('M d, Y • h:i A')."', 
-                        '".addslashes($item['name'])."', 
-                        '$price', 
-                        '{$item['download_link']}',
-                        '$item_icon',
-                        '$receipt_logo'
-                    );
-                };
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({ 
+                        icon: 'error', 
+                        title: 'Insufficient Funds', 
+                        text: 'Please recharge your wallet.', 
+                        confirmButtonColor: '#7c3aed'
+                    });
+                });
             </script>";
-            
-        } catch (Exception $e) {
-            $db->rollBack();
-            echo "<script>alert('Error: " . $e->getMessage() . "');</script>";
+        } else {
+            try {
+                $db->beginTransaction();
+                
+                // Deduct Amount
+                $db->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$price, $user_id]);
+                
+                // Generate Order
+                $code = 'INV-' . strtoupper(bin2hex(random_bytes(3))) . date('s');
+                $stmt = $db->prepare("INSERT INTO orders (user_id, product_id, total_price, status, code, created_at) VALUES (?, ?, ?, 'completed', ?, NOW())");
+                $stmt->execute([$user_id, $p_id, $price, $code]);
+                $order_db_id = $db->lastInsertId();
+                
+                // Ledger Entry
+                $db->prepare("INSERT INTO wallet_ledger (user_id, type, amount, ref_type, ref_id, note) VALUES (?, 'debit', ?, 'order', ?, 'Product Purchase')")->execute([$user_id, $price, $order_db_id]);
+                
+                $db->commit();
+                
+                // --- LIVE UPDATE BALANCE ---
+                $user_balance = $current_bal - $price; 
+
+                $item_icon = !empty($item['icon']) ? "../assets/img/".$item['icon'] : "https://via.placeholder.com/80";
+                
+                echo "<script>
+                    if ( window.history.replaceState ) {
+                        window.history.replaceState( null, null, window.location.href );
+                    }
+                    window.onload = function() {
+                        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#7c3aed', '#a78bfa'] });
+                        showReceipt(
+                            '$code', 
+                            '".date('M d, Y • h:i A')."', 
+                            '".addslashes($item['name'])."', 
+                            '$price', 
+                            '{$item['download_link']}',
+                            '$item_icon',
+                            '$receipt_logo'
+                        );
+                    };
+                </script>";
+                
+            } catch (Exception $e) {
+                $db->rollBack();
+                echo "<script>alert('Error: " . $e->getMessage() . "');</script>";
+            }
         }
     }
 }
@@ -254,7 +269,7 @@ body {
 .btn-dl { background: var(--text-dark); color: white; }
 .btn-sv { background: var(--white); color: var(--text-dark); }
 
-/* --- 🌟 LANDSCAPE CARD CSS (1920x1080) --- */
+/* --- ✨ LANDSCAPE CARD CSS (1920x1080) --- */
 #promo-card {
     position: fixed; left: -9999px; top: 0;
     /* Changed to LANDSCAPE Ratio */
@@ -459,7 +474,7 @@ body {
                             '<?= $lang_val ?>',
                             '<?= $size_val ?>'
                         )">
-                        📸
+                        ✨
                     </button>
                     <button class="btn-buy-icon"><i class="fas fa-arrow-right"></i></button>
                 </div>
@@ -510,8 +525,7 @@ body {
         <form method="POST">
             <input type="hidden" name="buy_product" value="1">
             <input type="hidden" name="product_id" id="form_pid">
-            <input type="hidden" name="price" id="form_price">
-            <div style="display:flex; gap:10px;">
+            <input type="hidden" name="price" id="form_price"> <div style="display:flex; gap:10px;">
                 <button type="button" onclick="closeModals()" style="flex:1; padding:12px; border:none; background:#f5f3ff; border-radius:12px; cursor:pointer;">Cancel</button>
                 <button type="submit" style="flex:1; padding:12px; border:none; background:var(--primary); color:white; border-radius:12px; cursor:pointer;">Pay Now</button>
             </div>
@@ -577,7 +591,7 @@ function genCard(name, price, oldPrice, icon, lang, size) {
     // 3. Tags Logic
     const tagBox = document.getElementById('pc-tags-container');
     tagBox.innerHTML = '';
-    if(lang) tagBox.innerHTML += `<div class="pc-tag">🌐 ${lang}</div>`;
+    if(lang) tagBox.innerHTML += `<div class="pc-tag">🌍 ${lang}</div>`;
     if(size) tagBox.innerHTML += `<div class="pc-tag">💾 ${size}</div>`;
 
     // 4. Capture
