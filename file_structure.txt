@@ -1,6 +1,7 @@
 .htaccess
 Israr.md
 LICENSE.txt
+api_preview.php
 api_v2.php
 assets/
 blog.php
@@ -14,6 +15,7 @@ fix_updates_table.php
 forgot_password.php
 google_callback.php
 includes/
+index.html
 index.php
 install.lock
 login.php
