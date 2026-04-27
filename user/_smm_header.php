@@ -322,7 +322,7 @@ try {
     <div class="purple-spin-bg"></div>
     
     <div class="nav-inner">
-        <a href="smm_order.php" class="logo-area">
+        <a href="index.php" class="logo-area">
             <?php if (!empty($GLOBALS['settings']['site_logo'])): ?>
                 <img src="../assets/img/<?php echo sanitize($GLOBALS['settings']['site_logo']); ?>" alt="Logo">
             <?php else: ?>
