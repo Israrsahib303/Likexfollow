@@ -8,6 +8,7 @@ blog.php
 blog_view.php
 boss_login.php
 debug_provider.php
+demo/
 fix_database.php
 fix_flash_db.php
 fix_service_type.php
