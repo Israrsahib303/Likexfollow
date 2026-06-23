@@ -4,18 +4,61 @@ session_start();
 require_once 'includes/db.php';
 require_once 'includes/helpers.php';
 
-// --- 1. Header Logic ---
-// Hum user header use karenge lekin ensure karenge ke paths broken na hon
-// Agar user logged in nahi hai to session error na aye
+// --- 🚀 ADVANCED 2-WAY SEO ENGINE STARTS ---
+global $db;
+$current_public_page = basename($_SERVER['PHP_SELF']);
+$current_url = $_SERVER['REQUEST_URI'];
+$user_ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+
+// Default SEO Fallbacks
+$seo_title = "Best SMM Services List - Cheap & Instant Delivery";
+$seo_desc = "Explore our complete SMM Services list. Get instant Instagram followers, high-retention YouTube views, and wholesale TikTok likes at factory prices.";
+$seo_kws = "smm services list, cheap smm panel, wholesale smm panel, buy followers list, automatic smm provider";
+
+if (isset($db)) {
+    try {
+        // 1. Backend-to-Frontend: Fetch Expert SEO Data for Services Page
+        $seo_stmt = $db->prepare("SELECT meta_title, meta_description, meta_keywords FROM site_seo WHERE page_name = ? OR page_url = ? LIMIT 1");
+        $seo_stmt->execute([$current_public_page, $current_url]);
+        $seo_data = $seo_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($seo_data) {
+            if (!empty($seo_data['meta_title'])) $seo_title = $seo_data['meta_title'];
+            if (!empty($seo_data['meta_description'])) $seo_desc = $seo_data['meta_description'];
+            if (!empty($seo_data['meta_keywords'])) $seo_kws = $seo_data['meta_keywords'];
+        }
+        
+        // 2. Frontend-to-Backend: Live Traffic Crawler Tracker (Feeds log analyzer & traffic stats directly)
+        $log_stmt = $db->prepare("INSERT IGNORE INTO semrush_server_logs (ip_address, crawl_url, status_code, user_agent, crawl_date) VALUES (?, ?, ?, ?, ?)");
+        $log_stmt->execute([$user_ip, $current_url, 200, $user_agent, date('Y-m-d H:i:s')]);
+        
+    } catch (PDOException $e) {
+        // Silently skip if database is sleeping or migrating
+    }
+}
+// --- 🚀 ADVANCED 2-WAY SEO ENGINE ENDS ---
+
+// --- 1. Header Logic & AUTO-SEO INJECTION ---
 $user_id = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
 
-// Page Title for SEO
-$page_title = "Best SMM Services List - Cheap & Instant";
 ob_start();
 include 'user/_header.php'; 
 $header_html = ob_get_clean();
-// Title Replace Hack for SEO
-$header_html = str_replace('<title>LikexFollow | The Crazy SMM Panel</title>', "<title>$page_title</title>", $header_html);
+
+// 🚀 INTEGRATING BEAST SEO AUTO-INJECTOR INTO BUFFERED HEADER 🚀
+if (file_exists(__DIR__ . '/seo_auto_injector.php')) {
+    require_once __DIR__ . '/seo_auto_injector.php';
+    
+    // Remove old static title to prevent duplication
+    $header_html = preg_replace('/<title>.*?<\/title>/i', '', $header_html);
+    
+    // Inject the fully automated API SEO Tags + JSON Schema right before closing </head>
+    $header_html = str_ireplace('</head>', $beast_seo_injection . "\n</head>", $header_html);
+} else {
+    // Smooth Regex title overwrite fallback mechanism
+    $header_html = preg_replace('/<title>(.*?)<\/title>/', '<title>' . htmlspecialchars($seo_title) . '</title>', $header_html);
+}
 echo $header_html;
 
 // --- 2. Currency Setup ---
@@ -24,7 +67,6 @@ $curr_rate = 1;
 $curr_symbol = 'Rs';
 
 if ($curr_code != 'PKR') {
-    // Helper function se rate lein (ensure function exists in helpers.php)
     if(function_exists('getCurrencyRate')) {
         $curr_rate = getCurrencyRate($curr_code);
     }
@@ -47,153 +89,165 @@ try {
     }
 
 } catch (Exception $e) {
-    echo "<div class='p-4 bg-red-100 text-red-700 text-center'>Database Error: " . $e->getMessage() . "</div>";
+    echo "<div class='p-4 bg-red-100 text-red-700 text-center rounded-xl my-4 font-bold'>Database Error: " . $e->getMessage() . "</div>";
 }
 ?>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
-/* --- 🎨 THEME STYLES --- */
 :root {
     --primary: #4F46E5;
+    --primary-hover: #4338ca;
     --bg-body: #F8FAFC;
     --card-bg: #FFFFFF;
-    --text-main: #1E293B;
-    --text-sub: #64748B;
+    --text-main: #0F172A;
+    --text-sub: #64748b;
     --border: #E2E8F0;
-    --radius: 12px;
 }
 
 body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: var(--text-main); }
 
-/* --- HEADER --- */
+/* Premium Header styling with high contrast */
 .page-header {
-    background: #fff; padding: 40px 20px; border-radius: var(--radius); margin-bottom: 40px;
+    background: #ffffff; padding: 50px 30px; border-radius: 16px; margin-bottom: 35px;
     text-align: center; border: 1px solid var(--border);
-    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
-    background-image: linear-gradient(to right, #f8fafc, #fff);
+    box-shadow: 0 10px 25px -15px rgba(0,0,0,0.05);
+    background-image: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
 }
-.page-title { font-size: 2.5rem; font-weight: 800; margin: 0; color: var(--text-main); letter-spacing: -1px; }
-.page-subtitle { color: var(--text-sub); font-size: 1.1rem; margin-top: 10px; }
+.page-title { font-size: 2.6rem; font-weight: 800; margin: 0; color: var(--text-main); letter-spacing: -1px; }
+.page-subtitle { color: var(--text-sub); font-size: 1.1rem; margin-top: 10px; font-weight: 500; }
 
-/* --- SEARCH --- */
-.search-container { max-width: 600px; margin: 0 auto 50px auto; position: relative; }
+/* Custom Search Box with glass borders */
+.search-container { max-width: 650px; margin: 0 auto 45px auto; position: relative; }
 .search-input {
-    width: 100%; padding: 18px 25px 18px 55px; border: 2px solid #e2e8f0;
-    border-radius: 50px; background: #fff; font-size: 1.1rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: 0.3s; color: var(--text-main);
+    width: 100%; padding: 16px 25px 16px 55px; border: 2px solid #e2e8f0;
+    border-radius: 50px; background: #ffffff; font-size: 1.05rem; font-weight: 600;
+    box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); transition: all 0.3s ease; color: var(--text-main);
 }
-.search-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
-.search-icon { position: absolute; left: 25px; top: 50%; transform: translateY(-50%); color: var(--text-sub); font-size: 1.2rem; }
+.search-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12); }
+.search-icon { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: var(--text-sub); font-size: 1.2rem; }
 
-/* --- CATEGORY CARD --- */
+/* Pure Enterprise Standard Cards Layout */
 .cat-card {
-    background: #fff; border-radius: 16px; margin-bottom: 30px;
+    background: #ffffff; border-radius: 16px; margin-bottom: 35px;
     overflow: hidden; border: 1px solid var(--border); 
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
+    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.cat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 20px -8px rgba(79, 70, 229, 0.08); border-color: #cbd5e1; }
+
 .cat-header {
-    padding: 20px 30px; background: #fff; border-bottom: 1px solid var(--border);
-    font-weight: 800; font-size: 1.2rem; color: #0f172a;
+    padding: 22px 30px; background: #ffffff; border-bottom: 1px solid var(--border);
+    font-weight: 800; font-size: 1.25rem; color: #0f172a;
     display: flex; justify-content: space-between; align-items: center;
 }
-.cat-badge { background: #eff6ff; color: var(--primary); padding: 5px 12px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; }
+.cat-badge { background: #eef2ff; color: var(--primary); padding: 5px 14px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; border: 1px solid #c7d2fe; }
 
-/* --- TABLE --- */
+/* Premium Clean Scannable Tables */
 .table-responsive { overflow-x: auto; }
 .svc-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .svc-table th {
-    text-align: left; padding: 15px 30px; color: var(--text-sub);
-    font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
+    text-align: left; padding: 16px 30px; color: var(--text-sub);
+    font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
     background: #f8fafc; border-bottom: 1px solid var(--border);
 }
 .svc-table td {
-    padding: 20px 30px; border-bottom: 1px solid #f1f5f9;
+    padding: 18px 30px; border-bottom: 1px solid #f1f5f9;
     color: var(--text-main); vertical-align: middle;
 }
-.svc-table tr:hover td { background: #fcfcfc; }
+.svc-table tr:hover td { background: #fafafa; }
 .svc-table tr:last-child td { border-bottom: none; }
 
-/* --- LINKS & BUTTONS --- */
 .svc-link { 
-    font-weight: 600; color: #334155; font-size: 1rem; margin-bottom: 8px; display: block; text-decoration: none; transition: 0.2s; 
+    font-weight: 700; color: #1e293b; font-size: 1.02rem; margin-bottom: 6px; display: block; text-decoration: none; transition: 0.2s; 
 }
 .svc-link:hover { color: var(--primary); text-decoration: underline; }
 
-.meta-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-.badge { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.meta-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.badge { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
 .bg-time { background: #f1f5f9; color: var(--text-sub); border: 1px solid #e2e8f0; }
-.bg-refill { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
-.bg-cancel { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.bg-refill { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.bg-cancel { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 
 .price-tag {
     font-weight: 800; color: var(--text-main); background: #f1f5f9;
-    padding: 8px 12px; border-radius: 8px; font-size: 0.9rem;
+    padding: 8px 14px; border-radius: 8px; font-size: 0.95rem; border: 1px solid #e2e8f0; display: inline-block;
 }
 
 .action-btn {
-    background: var(--primary); color: #fff;
-    padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 600;
-    transition: 0.2s; display: inline-block;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+    background: var(--primary); color: #ffffff;
+    padding: 9px 18px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700;
+    transition: all 0.2s ease; display: inline-block; text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.15); border: none;
 }
-.action-btn:hover { background: #4338ca; transform: translateY(-1px); }
+.action-btn:hover { background: var(--primary-hover); transform: translateY(-1px); color: #ffffff; box-shadow: 0 6px 12px -2px rgba(79, 70, 229, 0.3); }
 
 .id-pill {
-    background: #fff; color: var(--text-sub); padding: 4px 8px; border-radius: 6px;
-    font-family: monospace; border: 1px solid #e2e8f0; font-size: 0.8rem;
+    background: #ffffff; color: var(--text-sub); padding: 4px 10px; border-radius: 6px;
+    font-family: monospace; border: 1px solid #e2e8f0; font-size: 0.82rem; font-weight: 700;
 }
 
-/* Mobile */
+/* Responsiveness Engine */
 @media (max-width: 768px) {
-    .svc-table th, .svc-table td { padding: 15px 15px; }
+    .svc-table th, .svc-table td { padding: 14px 16px; }
     .meta-tags { gap: 4px; }
-    .badge { font-size: 0.65rem; padding: 2px 6px; }
-    .action-btn { padding: 6px 12px; font-size: 0.8rem; }
-    .page-title { font-size: 1.8rem; }
+    .badge { font-size: 0.7rem; padding: 2px 6px; }
+    .action-btn { padding: 8px 14px; font-size: 0.8rem; width: 100%; }
+    .page-title { font-size: 1.9rem; }
+    .price-tag { font-size: 0.85rem; padding: 6px 10px; }
 }
 </style>
 
-<div class="container mx-auto px-4 py-10 max-w-7xl"> <div class="page-header">
-        <h1 class="page-title">Explore Services</h1>
-        <p class="page-subtitle">Boost your social media presence with our premium services.</p>
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    
+    <div class="page-header">
+        <h1 class="page-title"><i class="fas fa-rocket text-indigo-600 mr-2"></i> Wholesale Service Matrix</h1>
+        <p class="page-subtitle">
+            <?php 
+            $subtitle_text = "Direct endpoint provider logs for LikexFollow accounts. Transparent pricing structure.";
+            // 🕸️ Auto Spider Linker Active!
+            echo function_exists('auto_spider_link') ? auto_spider_link($subtitle_text, $db) : $subtitle_text; 
+            ?>
+        </p>
     </div>
 
     <div class="search-container">
         <span class="search-icon"><i class="fas fa-search"></i></span>
-        <input type="text" id="search" class="search-input" placeholder="What are you looking for? (e.g. TikTok Views)...">
+        <input type="text" id="search" class="search-input" placeholder="Search across thousands of optimization packages (e.g., TikTok Views)...">
     </div>
 
     <div id="services-wrapper">
         <?php if (empty($grouped)): ?>
-            <div class="text-center py-20">
-                <div class="text-6xl mb-4">📭</div>
-                <h3 class="text-2xl font-bold text-slate-400">No Services Found</h3>
+            <div class="text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div class="text-6xl mb-3 opacity-50">📁</div>
+                <h3 class="text-xl font-bold text-slate-400">No Active Services Synchronized</h3>
+                <p class="text-slate-400 text-sm mt-1">Please ensure your API provider sync configurations are healthy.</p>
             </div>
         <?php else: ?>
             
             <?php foreach ($grouped as $catName => $list): ?>
                 <div class="cat-card" data-name="<?= strtolower(sanitize($catName)) ?>">
                     <div class="cat-header">
-                        <span><i class="fas fa-folder-open text-indigo-400 mr-2"></i> <?= sanitize($catName) ?></span>
-                        <span class="cat-badge"><?= count($list) ?></span>
+                        <span><i class="fas fa-folder-open text-indigo-500 mr-2"></i> <?= sanitize($catName) ?></span>
+                        <span class="cat-badge"><?= count($list) ?> Services Available</span>
                     </div>
                     
                     <div class="table-responsive">
                         <table class="svc-table">
                             <thead>
                                 <tr>
-                                    <th width="80">ID</th>
-                                    <th>Service Name</th>
-                                    <th width="120">Price / 1K</th>
-                                    <th width="140">Min / Max</th>
-                                    <th width="120" class="text-right">Action</th>
+                                    <th width="90">Service ID</th>
+                                    <th>Package Specification</th>
+                                    <th width="140">Rate Per 1,000</th>
+                                    <th width="160">Order Thresholds</th>
+                                    <th width="130" class="text-right">Execution</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($list as $s): 
-                                    // 🔥 CALCULATE CUSTOM PRICE IF USER IS LOGGED IN
+                                    // 🔥 RELATIONAL CALCULATED CUSTOM USER RATE
                                     $base_rate = (float)$s['service_rate'];
                                     if ($user_id > 0) {
                                         $base_rate = get_final_user_price($user_id, $s['provider_id'], $s['category'], $s['id'], $base_rate);
@@ -202,9 +256,9 @@ body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color
                                     $rate = $base_rate;
                                     if ($curr_code != 'PKR') $rate *= $curr_rate;
                                     
-                                    // SEO Link Generation
+                                    // Dynamic Rewrite Engine Slug Generation (Strictly SEO Compliant)
                                     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $s['name'])));
-                                    $seo_link = "service/{$s['id']}/$slug"; // Uses .htaccess rewrite
+                                    $seo_link = "service/{$s['id']}/$slug"; 
                                 ?>
                                 <tr class="service-row" data-name="<?= strtolower(sanitize($s['name'])) ?>">
                                     <td>
@@ -216,21 +270,21 @@ body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color
                                         </a>
                                         
                                         <div class="meta-tags">
-                                            <span class="badge bg-time"><i class="far fa-clock"></i> <?= formatSmmAvgTime($s['avg_time'] ?? 'Instant') ?></span>
-                                            <?php if($s['has_refill']): ?><span class="badge bg-refill"><i class="fas fa-sync-alt"></i> Refill</span><?php endif; ?>
-                                            <?php if($s['has_cancel']): ?><span class="badge bg-cancel"><i class="fas fa-ban"></i> Cancel</span><?php endif; ?>
+                                            <span class="badge bg-time"><i class="far fa-clock"></i> Delivery: <?= formatSmmAvgTime($s['avg_time'] ?? 'Instant') ?></span>
+                                            <?php if($s['has_refill']): ?><span class="badge bg-refill"><i class="fas fa-history"></i> Auto-Refill Enabled</span><?php endif; ?>
+                                            <?php if($s['has_cancel']): ?><span class="badge bg-cancel"><i class="fas fa-times-circle"></i> Guarantee Revoke</span><?php endif; ?>
                                         </div>
                                     </td>
                                     <td>
                                         <span class="price-tag"><?= $curr_symbol . ' ' . number_format($rate, 2) ?></span>
                                     </td>
                                     <td>
-                                        <div class="text-xs text-slate-500 font-bold mb-1">MIN: <?= number_format($s['min']) ?></div>
-                                        <div class="text-xs text-slate-500 font-bold">MAX: <?= number_format($s['max']) ?></div>
+                                        <div class="text-xs text-slate-500 font-bold mb-1">MIN: <span class="text-slate-800"><?= number_format($s['min']) ?></span></div>
+                                        <div class="text-xs text-slate-500 font-bold">MAX: <span class="text-slate-800"><?= number_format($s['max']) ?></span></div>
                                     </td>
                                     <td class="text-right">
                                         <a href="<?= $seo_link ?>" class="action-btn">
-                                            Buy Now <i class="fas fa-arrow-right ml-1"></i>
+                                            Buy Package <i class="fas fa-chevron-right ml-1 small"></i>
                                         </a>
                                     </td>
                                 </tr>
@@ -247,7 +301,7 @@ body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color
 </div>
 
 <script>
-// Search Functionality
+// Real-time Fast Filtering Node Walker
 document.getElementById('search').addEventListener('input', function(e) {
     const val = e.target.value.toLowerCase();
     document.querySelectorAll('.cat-card').forEach(card => {
