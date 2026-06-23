@@ -36,13 +36,73 @@ if (!isAdmin()) {
 }
 // ====================================================
 
+// --- 2. PERMISSIONS ENGINE (DETERMINE USER CAPS) ---
+global $db;
+$admin_perms = [];
+$is_super_admin = false;
+
+// If user is logged in, fetch their specific role and permissions
+if (isset($_SESSION['user_id'])) {
+    try {
+        $u_stmt = $db->prepare("SELECT role, permissions FROM users WHERE id = ? LIMIT 1");
+        $u_stmt->execute([$_SESSION['user_id']]);
+        $u_data = $u_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Super Admin gets everything inherently OR if permissions JSON is missing but they are an old admin
+        if ($u_data && $u_data['role'] === 'admin' && empty($u_data['permissions'])) {
+            $is_super_admin = true;
+        } else if ($u_data) {
+            $admin_perms = json_decode($u_data['permissions'] ?? '[]', true);
+            if (!is_array($admin_perms)) $admin_perms = [];
+        }
+    } catch(Exception $e) {}
+}
+
+// Helper Function: Check if user has specific permission OR is Super Admin
+function checkMenuPerm($permKey, $admin_perms, $is_super_admin) {
+    if ($is_super_admin) return true; // Super admin sees all
+    if (in_array('seo_full_access', $admin_perms)) {
+         // If they have the SEO Master Switch, they only see SEO stuff (Unless explicitly granted other perms)
+         // But we check specific keys below.
+    }
+    return in_array($permKey, $admin_perms);
+}
+
+// Helper Function: Determine if an entire menu category should be visible
+function checkCategoryVisible($categoryName, $admin_perms, $is_super_admin) {
+    if ($is_super_admin) return true;
+    
+    // Logic mapping categories to required permissions
+    switch ($categoryName) {
+        case 'SMM Panel':
+            return checkMenuPerm('view_orders', $admin_perms, $is_super_admin) || checkMenuPerm('manage_services', $admin_perms, $is_super_admin);
+        case 'Digital Store':
+            return checkMenuPerm('manage_products', $admin_perms, $is_super_admin);
+        case 'Crypto / P2P':
+            return checkMenuPerm('add_balance', $admin_perms, $is_super_admin); // Assuming linked to finance
+        case 'Users & Staff':
+            return checkMenuPerm('view_users', $admin_perms, $is_super_admin) || checkMenuPerm('add_balance', $admin_perms, $is_super_admin);
+        case 'Marketing Tools':
+            return checkMenuPerm('manage_seo', $admin_perms, $is_super_admin) || checkMenuPerm('view_users', $admin_perms, $is_super_admin);
+        case 'Enterprise SEO':
+            return checkMenuPerm('seo_full_access', $admin_perms, $is_super_admin) || checkMenuPerm('manage_seo', $admin_perms, $is_super_admin) || checkMenuPerm('manage_blogs', $admin_perms, $is_super_admin) || checkMenuPerm('semrush_tools', $admin_perms, $is_super_admin);
+        case 'Site Content':
+            return checkMenuPerm('manage_blogs', $admin_perms, $is_super_admin) || checkMenuPerm('access_settings', $admin_perms, $is_super_admin);
+        case 'System Core':
+        case 'Maintenance':
+            return checkMenuPerm('access_settings', $admin_perms, $is_super_admin);
+        default:
+            return false;
+    }
+}
+
 // --- 3. PAGE LOGIC ---
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// --- 4. MASTER NAVIGATION MENU (ADVANCED & CLEANED) ---
-$master_menu = [
+// --- 4. MASTER NAVIGATION MENU (ADVANCED & FILTERED) ---
+$raw_master_menu = [
     [
-        'label' => 'Dashboard',
+        'label' => 'Dashboard', // Everyone sees Dashboard
         'link' => 'index.php',
         'icon' => 'fa-home',
         'color' => '#6366f1', 
@@ -119,14 +179,34 @@ $master_menu = [
         ]
     ],
     [
-        'label' => 'SEO & AI Hub',
+        'label' => 'Enterprise SEO',
         'link' => '#',
-        'icon' => 'fa-search',
+        'icon' => 'fa-chart-line',
         'color' => '#8b5cf6', 
         'children' => [
-            ['label' => 'SEO Toolkit', 'link' => 'seo_tools.php', 'icon' => 'fa-search-dollar'],
-            ['label' => 'SEO Manager', 'link' => 'seo_manager.php', 'icon' => 'fa-sliders-h'],
-            ['label' => 'SEO Logs', 'link' => 'seo_logs.php', 'icon' => 'fa-clipboard-list'],
+            ['label' => 'SEO Dashboard', 'link' => 'semrush_dashboard.php', 'icon' => 'fa-satellite-dish'],
+            // --- ✨ NEW SEO BLOG OPTIONS ✨ ---
+            ['label' => 'AI Prompt Builder', 'link' => 'semrush_prompt_builder.php', 'icon' => 'fa-magic'],
+            ['label' => 'Blog Manager', 'link' => 'seo_blog_manager.php', 'icon' => 'fa-blog'],
+            // ---------------------------------
+            ['label' => 'Master Importer', 'link' => 'semrush_importer.php', 'icon' => 'fa-cloud-upload-alt'],
+            ['label' => 'Site Audit', 'link' => 'semrush_site_audit.php', 'icon' => 'fa-stethoscope'],
+            ['label' => 'Log Analyzer', 'link' => 'semrush_log_analyzer.php', 'icon' => 'fa-spider'],
+            ['label' => 'On-Page Checker', 'link' => 'semrush_onpage_checker.php', 'icon' => 'fa-file-alt'],
+            ['label' => 'Rank Tracker', 'link' => 'semrush_rank_tracker.php', 'icon' => 'fa-trophy'],
+            ['label' => 'SERP Sensor', 'link' => 'semrush_sensor.php', 'icon' => 'fa-heartbeat'],
+            ['label' => 'Traffic Insights', 'link' => 'semrush_traffic_insights.php', 'icon' => 'fa-funnel-dollar'],
+            ['label' => 'Competitor Spy', 'link' => 'semrush_competitors.php', 'icon' => 'fa-user-secret'],
+            ['label' => 'Top Pages Sniper', 'link' => 'semrush_competitor_pages.php', 'icon' => 'fa-crosshairs'],
+            ['label' => 'Gap Sniper', 'link' => 'semrush_gaps.php', 'icon' => 'fa-compress-arrows-alt'],
+            ['label' => 'Keyword Vault', 'link' => 'semrush_keyword_magic.php', 'icon' => 'fa-magic'],
+            ['label' => 'Strategy Builder', 'link' => 'semrush_strategy_builder.php', 'icon' => 'fa-sitemap'],
+            ['label' => 'Topic Research', 'link' => 'semrush_topic_research.php', 'icon' => 'fa-lightbulb'],
+            ['label' => 'Writing Assistant', 'link' => 'semrush_writing_assistant.php', 'icon' => 'fa-feather-alt'],
+            ['label' => 'Backlinks Center', 'link' => 'semrush_backlinks.php', 'icon' => 'fa-link'],
+            ['label' => 'Backlink Audit', 'link' => 'semrush_backlink_audit.php', 'icon' => 'fa-biohazard'],
+            ['label' => 'Outreach CRM', 'link' => 'semrush_link_building.php', 'icon' => 'fa-handshake'],
+            ['label' => 'Expert Workspace', 'link' => 'expert_seo_workspace.php', 'icon' => 'fa-user-tie'],
             ['label' => 'AI Engine', 'link' => 'ai_manager.php', 'icon' => 'fa-brain']
         ]
     ],
@@ -137,7 +217,6 @@ $master_menu = [
         'color' => '#14b8a6', 
         'children' => [
             ['label' => 'Theme Editor', 'link' => 'theme_editor.php', 'icon' => 'fa-code'],
-            ['label' => 'Blog Manager', 'link' => 'blog_manager.php', 'icon' => 'fa-blog'],
             ['label' => 'Audio Manager', 'link' => 'manage_audio.php', 'icon' => 'fa-music'],
             ['label' => 'Tutorials', 'link' => 'tutorials.php', 'icon' => 'fa-book'],
             ['label' => 'Testimonials', 'link' => 'testimonials.php', 'icon' => 'fa-star'],
@@ -171,6 +250,14 @@ $master_menu = [
         ]
     ]
 ];
+
+// FILTER THE MENU BASED ON PERMISSIONS
+$master_menu = [];
+foreach ($raw_master_menu as $menu) {
+    if ($menu['label'] === 'Dashboard' || checkCategoryVisible($menu['label'], $admin_perms, $is_super_admin)) {
+        $master_menu[] = $menu;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -196,44 +283,68 @@ $master_menu = [
             box-shadow: 4px 0 15px rgba(0,0,0,0.02);
         }
         .sidebar-brand {
-            padding: 20px 25px; font-size: 1.4rem; font-weight: 800; color: var(--primary-color);
+            padding: 20px 25px; font-size: 1.3rem; font-weight: 800; color: var(--primary-color);
             border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px;
             background: linear-gradient(to right, #ffffff, #f8fafc);
         }
 
-        .nav-links { list-style: none; padding: 15px 10px; margin: 0; flex: 1; overflow-y: auto; }
-        .nav-item { position: relative; margin-bottom: 4px; }
+        .nav-links { list-style: none; padding: 15px 10px; margin: 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
+        
+        /* 🔥 CASCADING ANIMATION SETUP 🔥 */
+        @keyframes slideInNav {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .nav-item { 
+            position: relative; margin-bottom: 4px; 
+            opacity: 0; 
+            animation: slideInNav 0.5s ease forwards; 
+        }
 
         .nav-link {
             color: #475569; padding: 12px 18px; font-weight: 600; display: flex; align-items: center; gap: 12px;
-            transition: all 0.2s; border-radius: 12px; text-decoration: none; cursor: pointer; font-size: 0.92rem;
+            transition: all 0.3s ease; border-radius: 12px; text-decoration: none; cursor: pointer; font-size: 0.92rem;
+            position: relative; z-index: 1; overflow: hidden;
         }
-        .nav-link:hover { background-color: #f1f5f9; color: var(--primary-color); transform: translateX(4px); }
-        .nav-link.active { background-color: #eef2ff; color: var(--primary-color); box-shadow: inset 3px 0 0 var(--primary-color); }
         
-        .nav-link i.icon { width: 24px; text-align: center; font-size: 1.1rem; transition: 0.3s; }
-        .nav-link:hover i.icon { transform: scale(1.1); }
+        /* 🔥 MODERN HOVER SWEEP 🔥 */
+        .nav-link::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 0%; height: 100%;
+            background: linear-gradient(90deg, rgba(79, 70, 229, 0.08), transparent);
+            transition: width 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); z-index: -1; border-radius: 12px;
+        }
+        .nav-link:hover::before { width: 100%; }
+        
+        .nav-link:hover { color: var(--primary-color); transform: translateX(5px); }
+        .nav-link.active { background-color: #eef2ff; color: var(--primary-color); box-shadow: inset 4px 0 0 var(--primary-color); }
+        
+        /* 🔥 ICON BOUNCE ANIMATION 🔥 */
+        .nav-link i.icon { width: 24px; text-align: center; font-size: 1.1rem; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .nav-link:hover i.icon { transform: scale(1.15) rotate(5deg); }
         
         .arrow { margin-left: auto; transition: transform 0.3s ease; font-size: 0.8rem; opacity: 0.5; }
         
         .nav-item.open .arrow { transform: rotate(180deg); }
         .nav-item.open > .nav-link { color: var(--primary-color); background: #f8fafc; }
         
+        /* SUB-MENU ANIMATION */
         .sub-menu {
             list-style: none; padding: 5px 0 5px 10px; 
             background: #ffffff; overflow: hidden; 
-            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             max-height: 0px; display: block;
             margin-left: 15px; border-left: 2px solid #e2e8f0;
         }
         
         .sub-menu li a {
             display: flex; align-items: center; padding: 10px 15px; font-size: 0.85rem; color: #64748b;
-            text-decoration: none; transition: 0.2s; border-radius: 8px; margin-bottom: 2px;
+            text-decoration: none; transition: all 0.2s ease; border-radius: 8px; margin-bottom: 2px;
+            position: relative;
         }
-        .sub-menu li a i { font-size: 0.8rem; width: 20px; text-align: center; margin-right: 8px; opacity: 0.7; }
-        .sub-menu li a:hover, .sub-menu li a.active { color: var(--primary-color); background: #f8fafc; font-weight: 700; }
-        .sub-menu li a.active { background: #eef2ff; }
+        .sub-menu li a i { font-size: 0.8rem; width: 20px; text-align: center; margin-right: 8px; opacity: 0.7; transition: transform 0.3s; }
+        .sub-menu li a:hover { color: var(--primary-color); background: #f8fafc; font-weight: 700; transform: translateX(3px); }
+        .sub-menu li a:hover i { transform: scale(1.1); }
+        .sub-menu li a.active { background: #eef2ff; color: var(--primary-color); font-weight: 700; }
 
         .sidebar::-webkit-scrollbar { width: 5px; }
         .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -297,11 +408,11 @@ $master_menu = [
             <div style="width:38px; height:38px; background:var(--primary-color); border-radius:10px; display:flex; align-items:center; justify-content:center; color:white; font-size:1.2rem; box-shadow: 0 4px 10px rgba(79,70,229,0.3);">
                 <i class="fas fa-bolt"></i>
             </div>
-            <span>Beast Panel</span>
+            <span>Israr Admin Panel</span>
         </div>
 
         <ul class="nav-links">
-            <?php foreach ($master_menu as $menu): 
+            <?php foreach ($master_menu as $index => $menu): 
                 $children = $menu['children'] ?? [];
                 $has_children = !empty($children);
                 
@@ -320,7 +431,7 @@ $master_menu = [
                 $color_style = isset($menu['color']) ? "color: {$menu['color']};" : "";
             ?>
             
-            <li class="nav-item <?= $child_active ? 'open' : '' ?>">
+            <li class="nav-item <?= $child_active ? 'open' : '' ?>" style="animation-delay: <?= $index * 0.06 ?>s;">
                 <a href="<?= $menu_link ?>" class="nav-link <?= ($is_active || $child_active) ? 'active' : '' ?> <?= $toggle_class ?>">
                     <i class="fa-solid <?= $menu['icon'] ?> icon" style="<?= $color_style ?>"></i>
                     <span><?= htmlspecialchars($menu['label']) ?></span>
@@ -506,5 +617,17 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }).catch(err => console.log("Currency API Error: ", err));
 });
+
+// 4. RESTRICTED ACCESS ALERTS
+// Optional frontend check: if an element has a specific class, block it with sweetalert
+function restrictedClick(e) {
+    e.preventDefault();
+    Swal.fire({
+        icon: 'error',
+        title: 'Access Denied',
+        text: 'You do not have permission to view or edit this module.',
+        confirmButtonColor: '#4f46e5'
+    });
+}
 </script>
 <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
