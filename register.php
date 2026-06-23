@@ -1,6 +1,6 @@
 <?php
-// register.php - Premium Signup with WhatsApp Trap for Google Users
-// Beast9 Final: Consistent UI + Data Collection + Google Interception
+// File: register.php - Premium Signup with WhatsApp Trap for Google Users
+// Beast9 Final: Consistent UI + Data Collection + Google Interception + SEMrush SEO Engine
 
 ob_start(); // Buffering start for header redirects
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -11,6 +11,37 @@ require_once __DIR__ . '/includes/db.php'; // Ensure DB connection is active
 if (file_exists(__DIR__ . '/includes/google_config.php')) {
     require_once __DIR__ . '/includes/google_config.php';
 }
+
+// --- 🚀 ADVANCED 2-WAY SEO ENGINE STARTS ---
+global $db;
+$current_public_page = basename($_SERVER['PHP_SELF']);
+$current_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+$user_ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+
+// Default SEO Fallbacks for Register Page
+$seo_title = "Sign Up - " . ($GLOBALS['settings']['site_name'] ?? 'LikexFollow');
+$seo_desc = "Create your LikexFollow account today. Get instant access to premium SMM services, digital assets, and automated social media growth tools.";
+$seo_kws = "register likexfollow, sign up smm panel, create account likexfollow, smm panel registration";
+
+if (isset($db)) {
+    try {
+        $seo_stmt = $db->prepare("SELECT meta_title, meta_description, meta_keywords FROM site_seo WHERE page_name = ? OR page_url = ? LIMIT 1");
+        $seo_stmt->execute([$current_public_page, $current_url]);
+        $seo_data = $seo_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($seo_data) {
+            if (!empty($seo_data['meta_title'])) $seo_title = $seo_data['meta_title'];
+            if (!empty($seo_data['meta_description'])) $seo_desc = $seo_data['meta_description'];
+            if (!empty($seo_data['meta_keywords'])) $seo_kws = $seo_data['meta_keywords'];
+        }
+        
+        // Traffic Logger for SEMrush Engine
+        $log_stmt = $db->prepare("INSERT IGNORE INTO semrush_server_logs (ip_address, crawl_url, status_code, user_agent, crawl_date) VALUES (?, ?, ?, ?, ?)");
+        $log_stmt->execute([$user_ip, $current_url, 200, $user_agent, date('Y-m-d H:i:s')]);
+    } catch (PDOException $e) {}
+}
+// --- 🚀 ADVANCED 2-WAY SEO ENGINE ENDS ---
 
 // --- 0. AUTO-FIX DATABASE (Ensure phone column exists) ---
 try {
@@ -168,8 +199,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sign Up - <?php echo $GLOBALS['settings']['site_name'] ?? 'Account'; ?></title>
     
+    <?php 
+    if (file_exists(__DIR__ . '/seo_auto_injector.php')) {
+        require_once __DIR__ . '/seo_auto_injector.php'; 
+        echo $beast_seo_injection; 
+    } else {
+    ?>
+        <title><?= htmlspecialchars($seo_title) ?></title>
+        <meta name="description" content="<?= htmlspecialchars($seo_desc) ?>">
+        <meta name="keywords" content="<?= htmlspecialchars($seo_kws) ?>">
+        <meta property="og:title" content="<?= htmlspecialchars($seo_title) ?>">
+        <meta property="og:description" content="<?= htmlspecialchars($seo_desc) ?>">
+        <meta property="og:url" content="<?= htmlspecialchars($current_url) ?>">
+    <?php } ?>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -355,7 +398,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <?php else: ?>
                 <h1 class="title"><?php echo $GLOBALS['settings']['site_name'] ?? 'LikexFollow'; ?></h1>
             <?php endif; ?>
-            <p class="subtitle">Join our community in seconds</p>
+            <p class="subtitle">
+                <?php 
+                $subtitle_txt = "Join our community in seconds";
+                echo function_exists('auto_spider_link') ? auto_spider_link($subtitle_txt, $db) : $subtitle_txt;
+                ?>
+            </p>
         </div>
 
         <?php if ($error): ?>
