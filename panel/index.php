@@ -1,4 +1,5 @@
 <?php
+// File: index.php (Admin Dashboard)
 include '_header.php'; 
 
 // --- LIVE DATA NIKAL RAHE HAIN ---
@@ -27,10 +28,18 @@ $client_ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
 $php_version = phpversion();
 $ssl_status = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'AES-256 Validated' : 'Not Secured';
 $server_soft = $_SERVER['SERVER_SOFTWARE'] ?? 'Linux/Apache Engine';
+
+// --- PERMISSIONS FETCHING (SECURITY) ---
+// Note: We use the $admin_perms and $is_super_admin variables that should be set in _header.php
+$has_smm_access = isset($is_super_admin) && $is_super_admin ? true : (isset($admin_perms) && (in_array('view_orders', $admin_perms) || in_array('manage_services', $admin_perms)));
+$has_digital_access = isset($is_super_admin) && $is_super_admin ? true : (isset($admin_perms) && in_array('manage_products', $admin_perms));
+$has_crypto_access = isset($is_super_admin) && $is_super_admin ? true : (isset($admin_perms) && in_array('add_balance', $admin_perms));
+
 ?>
 
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
     /* THEME VARIABLES (Safaid aur Kala Hacker Touch) */
@@ -125,6 +134,7 @@ $server_soft = $_SERVER['SERVER_SOFTWARE'] ?? 'Linux/Apache Engine';
         display: flex; flex-direction: column; align-items: center; text-align: center;
         transition: all 0.3s ease;
         position: relative; overflow: hidden;
+        cursor: pointer;
     }
 
     .cmd-btn:hover {
@@ -260,28 +270,28 @@ $server_soft = $_SERVER['SERVER_SOFTWARE'] ?? 'Linux/Apache Engine';
         <div class="master-title"><i class="fas fa-satellite-dish"></i> Master Control Panel</div>
         
         <div class="cmd-buttons-grid">
-            <a href="smm_dashboard.php" class="cmd-btn">
+            <a <?= $has_smm_access ? 'href="smm_dashboard.php"' : 'href="#" onclick="showWarning(\'smm\')"' ?> class="cmd-btn">
                 <?php if($smm_pending > 0): ?><div class="btn-badge"><?= $smm_pending ?> Pending</div><?php else: ?><div class="btn-badge safe">Clean</div><?php endif; ?>
                 <div class="cmd-icon"><i class="fas fa-rocket"></i></div>
                 <h3>SMM Panel</h3>
                 <p>Social Media Orders</p>
             </a>
 
-            <a href="sub_dashboard.php" class="cmd-btn">
+            <a <?= $has_digital_access ? 'href="sub_dashboard.php"' : 'href="#" onclick="showWarning(\'digital\')"' ?> class="cmd-btn">
                 <div class="btn-badge safe"><?= number_format($active_subs) ?> Active</div>
                 <div class="cmd-icon"><i class="fas fa-crown"></i></div>
                 <h3>Subscriptions</h3>
                 <p>Netflix & Premium</p>
             </a>
 
-            <a href="downloads_manager.php" class="cmd-btn">
+            <a <?= $has_digital_access ? 'href="downloads_manager.php"' : 'href="#" onclick="showWarning(\'digital\')"' ?> class="cmd-btn">
                 <div class="btn-badge safe"><?= $total_files ?> Files</div>
                 <div class="cmd-icon"><i class="fas fa-cloud-arrow-down"></i></div>
                 <h3>Digital Vault</h3>
                 <p>Downloadable Files</p>
             </a>
 
-            <a href="crypto_orders.php" class="cmd-btn">
+            <a <?= $has_crypto_access ? 'href="crypto_orders.php"' : 'href="#" onclick="showWarning(\'crypto\')"' ?> class="cmd-btn">
                 <?php if($crypto_pending > 0): ?><div class="btn-badge"><?= $crypto_pending ?> Requests</div><?php else: ?><div class="btn-badge safe">Synced</div><?php endif; ?>
                 <div class="cmd-icon"><i class="fab fa-bitcoin"></i></div>
                 <h3>USDT Funds</h3>
@@ -452,6 +462,35 @@ $server_soft = $_SERVER['SERVER_SOFTWARE'] ?? 'Linux/Apache Engine';
 </div>
 
 <script>
+    // ==========================================
+    // 🛡️ SECURITY MEME WARNING LOGIC
+    // ==========================================
+    function showWarning(type) {
+        event.preventDefault(); // Default click ko rok diya
+        
+        let title = "Access Denied 🛑";
+        let text = "Tumhara ilaqa nahi hai ye! Wapis jao.";
+        
+        if (type === 'smm') {
+            text = "Bhai SMM Panel ka access nahi diya Boss ne. Sirf SEO par focus karo!";
+        } else if (type === 'digital') {
+            text = "Digital Store VIP area hai. Tumhari entry restrict kar di gayi hai!";
+        } else if (type === 'crypto') {
+            text = "Crypto funds ko hath lagane ki ijazat nahi hai hacker babu! 😅";
+        }
+        
+        Swal.fire({
+            icon: 'error',
+            title: title,
+            text: text,
+            confirmButtonText: "Okay Boss! 🫡",
+            confirmButtonColor: '#ef4444',
+            background: '#ffffff',
+            backdrop: `rgba(15, 23, 42, 0.8)`
+        });
+    }
+
+
     // ==========================================
     // 🛡️ 20 BOXES JAVASCRIPT ANIMATIONS
     // ==========================================
