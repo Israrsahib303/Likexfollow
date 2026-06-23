@@ -55,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_perms'])) {
 
 // --- 5. FETCH STAFF MEMBERS ---
 $search = $_GET['search'] ?? '';
-// Ab 'role' column confirm hai, toh error nahi aayega
 $sql = "SELECT * FROM users WHERE role IN ('admin', 'staff')";
 
 if ($search) {
@@ -69,8 +68,20 @@ try {
     die("Query Error: " . $e->getMessage());
 }
 
-// --- 6. DEFINE PERMISSIONS LIST ---
+// --- 6. DEFINE PERMISSIONS LIST (MASSIVE SEO UPDATE) ---
 $all_permissions = [
+    'seo_content' => [
+        'icon' => 'fa-magnifying-glass-chart', 
+        'label' => 'SEMrush & SEO Hub (All 20+ Files)',
+        'caps' => [
+            'seo_full_access' => '★ FULL SEO ACCESS (Master Switch)',
+            'manage_site_seo' => 'Global Site Meta Tags',
+            'semrush_data' => 'SEMrush Data (Vault, Gaps, Ideas)',
+            'seo_prompt_builder' => 'AI Prompt Builder',
+            'manage_blogs' => 'Publish & Manage Blogs',
+            'seo_traffic_logs' => 'Traffic & Crawler Logs'
+        ]
+    ],
     'orders' => [
         'icon' => 'fa-box', 
         'label' => 'Order Management',
@@ -113,7 +124,7 @@ $all_permissions = [
         'caps' => [
             'access_settings' => 'General Settings',
             'manage_providers' => 'API Providers',
-            'view_logs' => 'Audit Logs'
+            'system_logs' => 'System Audit Logs'
         ]
     ]
 ];
@@ -153,7 +164,7 @@ $all_permissions = [
         background: var(--card); border-radius: 20px; border: 1px solid var(--border);
         box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05); overflow: hidden;
         transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative;
-        width: 80%;
+        width: 100%;
     }
     .s-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.15); border-color: #c7d2fe; }
     
@@ -184,13 +195,14 @@ $all_permissions = [
         background: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; color: #64748b; font-weight: 600;
     }
     .ps-tag.has-perm { background: #dcfce7; color: #166534; }
+    .ps-tag.master-seo { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; }
 
     .s-btn {
         width: 100%; padding: 12px; border-radius: 12px; background: var(--primary); color: white;
         border: none; font-weight: 700; cursor: pointer; transition: 0.2s;
         display: flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .s-btn:hover { background: #4338ca; shadow: 0 4px 15px rgba(79, 70, 229, 0.4); }
+    .s-btn:hover { background: #4338ca; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); }
 
     /* MODAL (PERMISSION MATRIX) */
     .modal-overlay {
@@ -198,7 +210,7 @@ $all_permissions = [
         z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px;
     }
     .perm-box {
-        background: white; width: 100%; max-width: 800px; max-height: 90vh; overflow-y: auto;
+        background: white; width: 100%; max-width: 850px; max-height: 90vh; overflow-y: auto;
         border-radius: 24px; box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5);
         animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
@@ -214,18 +226,18 @@ $all_permissions = [
     .matrix-group { margin-bottom: 25px; background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
     .mg-header {
         background: #f8fafc; padding: 12px 20px; border-bottom: 1px solid var(--border);
-        font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 10px;
+        font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-size: 1.05rem;
     }
     .mg-icon { color: var(--primary); }
     
-    .mg-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); padding: 15px; gap: 15px; }
+    .mg-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); padding: 15px; gap: 15px; }
     
     /* TOGGLE SWITCH */
     .toggle-label {
         display: flex; align-items: center; justify-content: space-between; cursor: pointer;
-        padding: 10px; border-radius: 8px; transition: 0.2s; border: 1px solid transparent;
+        padding: 12px; border-radius: 8px; transition: 0.2s; border: 1px solid #f1f5f9; background: #fdfdfd;
     }
-    .toggle-label:hover { background: #f8fafc; border-color: #e2e8f0; }
+    .toggle-label:hover { background: #f8fafc; border-color: #cbd5e1; }
     
     .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -234,7 +246,8 @@ $all_permissions = [
     input:checked + .slider { background-color: var(--success); }
     input:checked + .slider:before { transform: translateX(20px); }
 
-    .btn-save { width: 100%; padding: 15px; background: var(--primary); color: white; font-size: 1.1rem; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
+    .btn-save { width: 100%; padding: 16px; background: var(--primary); color: white; font-size: 1.15rem; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
+    .btn-save:hover { background: #4338ca; transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.5); }
     
     @media(max-width: 768px) { .ph-content h1 { font-size: 1.5rem; } }
 </style>
@@ -291,10 +304,14 @@ $all_permissions = [
             </p>
             
             <div class="perm-summary">
-                <span class="ps-tag <?= in_array('view_orders',$u_perms)?'has-perm':'' ?>">Orders</span>
-                <span class="ps-tag <?= in_array('view_tickets',$u_perms)?'has-perm':'' ?>">Support</span>
-                <span class="ps-tag <?= in_array('access_settings',$u_perms)?'has-perm':'' ?>">Settings</span>
-                <span class="ps-tag <?= in_array('add_balance',$u_perms)?'has-perm':'' ?>">Payments</span>
+                <?php if(in_array('seo_full_access', $u_perms)): ?>
+                    <span class="ps-tag has-perm master-seo"><i class="fas fa-crown"></i> Full SEO Master</span>
+                <?php else: ?>
+                    <span class="ps-tag <?= in_array('view_orders',$u_perms)?'has-perm':'' ?>">Orders</span>
+                    <span class="ps-tag <?= in_array('view_tickets',$u_perms)?'has-perm':'' ?>">Support</span>
+                    <span class="ps-tag <?= in_array('manage_site_seo',$u_perms)?'has-perm':'' ?>">SEO</span>
+                    <span class="ps-tag <?= in_array('manage_blogs',$u_perms)?'has-perm':'' ?>">Content</span>
+                <?php endif; ?>
             </div>
 
             <button class="s-btn" onclick='openPerms(<?= json_encode($s) ?>)'>
@@ -331,8 +348,8 @@ $all_permissions = [
                     </div>
                     <div class="mg-options">
                         <?php foreach($group['caps'] as $key => $label): ?>
-                        <label class="toggle-label">
-                            <span style="font-size:0.9rem; font-weight:500; color:#334155;"><?= $label ?></span>
+                        <label class="toggle-label" <?= ($key == 'seo_full_access') ? 'style="background:#f5f3ff; border-color:#d8b4fe;"' : '' ?>>
+                            <span style="font-size:0.9rem; font-weight:600; color:<?= ($key == 'seo_full_access') ? '#7e22ce' : '#334155' ?>;"><?= $label ?></span>
                             <label class="switch">
                                 <input type="checkbox" name="perm[]" value="<?= $key ?>" class="perm-check" id="p_<?= $key ?>">
                                 <span class="slider"></span>
@@ -343,7 +360,7 @@ $all_permissions = [
                 </div>
                 <?php endforeach; ?>
                 
-                <button type="submit" class="btn-save">💾 Save Permissions</button>
+                <button type="submit" class="btn-save"><i class="fas fa-save me-2"></i> Save Privileges</button>
             </div>
         </form>
     </div>
@@ -362,10 +379,6 @@ function openPerms(user) {
     try {
         perms = JSON.parse(user.permissions || '[]');
     } catch(e) {}
-    
-    if (user.role === 'admin') {
-        // Optional: Pre-check all for admin visual
-    }
     
     perms.forEach(p => {
         let el = document.getElementById('p_' + p);
