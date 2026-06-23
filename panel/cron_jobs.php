@@ -2,22 +2,22 @@
 // --- 1. CONFIGURATION & AJAX HANDLER (TOP PRIORITY) ---
 $php_bin = '/usr/bin/php'; 
 
-// CRON LIST
+// CRON LIST (Old AI Crons Removed Permanently)
 $crons = [
+    // SYSTEM & BASIC CRONS
     ['id' => 'currency', 'title' => 'Currency Sync', 'desc' => 'Adaptive Sync (Respects Manual Set).', 'file' => 'currency_sync.php', 'log' => 'currency_sync.log', 'freq' => 'Every 1 Min', 'min' => 1, 'icon' => 'fa-coins', 'color' => '#10b981'],
     ['id' => 'order', 'title' => 'Order Placer', 'desc' => 'Sends pending orders to provider.', 'file' => 'smm_order_placer.php', 'log' => 'smm_order_placer.log', 'freq' => 'Every 1 Min', 'min' => 1, 'icon' => 'fa-rocket', 'color' => '#6366f1'],
     ['id' => 'status', 'title' => 'Status Sync', 'desc' => 'Updates order status & refunds.', 'file' => 'smm_status_sync.php', 'log' => 'smm_status_sync.log', 'freq' => 'Every 5 Mins', 'min' => 5, 'icon' => 'fa-rotate', 'color' => '#3b82f6'],
     ['id' => 'email', 'title' => 'Auto Payments', 'desc' => 'Checks emails for deposits.', 'file' => 'check_email.php', 'log' => 'email_payments.log', 'freq' => 'Every 5 Mins', 'min' => 5, 'icon' => 'fa-envelope-open-text', 'color' => '#ef4444'],
-    
-    // AI CRONS
-    ['id' => 'auto_meta', 'title' => 'Auto Meta Tagger', 'desc' => 'Generates SEO Meta Tags for pages.', 'file' => 'auto_meta_tagger.php', 'log' => 'auto_meta_tagger.log', 'freq' => 'Every 5 Mins', 'min' => 5, 'icon' => 'fa-tags', 'color' => '#8b5cf6'],
-    ['id' => 'ai_seo', 'title' => 'AI SEO Worker', 'desc' => 'Writes descriptions for services.', 'file' => 'ai_seo_worker.php', 'log' => 'ai_seo.log', 'freq' => 'Every 1 Hour', 'min' => 60, 'icon' => 'fa-robot', 'color' => '#ec4899'],
-    ['id' => 'ai_blog', 'title' => 'AI Blog Poster', 'desc' => 'Auto-writes & publishes articles.', 'file' => 'ai_blog_poster.php', 'log' => 'ai_blog.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-pen-nib', 'color' => '#d946ef'],
-    
-    // SYSTEM CRONS
     ['id' => 'service', 'title' => 'Service Sync', 'desc' => 'Updates prices & services.', 'file' => 'smm_service_sync.php', 'log' => 'smm_service_sync.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-cloud-arrow-down', 'color' => '#f59e0b'],
     ['id' => 'sub', 'title' => 'Expire Subs', 'desc' => 'Marks expired subscriptions.', 'file' => 'expire_subscriptions.php', 'log' => 'subscriptions.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-clock', 'color' => '#8b5cf6'],
-    ['id' => 'wallet', 'title' => 'Wallet Recalc', 'desc' => 'Auto-fixes balance issues.', 'file' => 'recalc_wallet.php', 'log' => 'wallet_recalc.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-calculator', 'color' => '#1e293b']
+    ['id' => 'wallet', 'title' => 'Wallet Recalc', 'desc' => 'Auto-fixes balance issues.', 'file' => 'recalc_wallet.php', 'log' => 'wallet_recalc.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-calculator', 'color' => '#1e293b'],
+
+    // 🔥 NEW ADVANCED SEO AUTOMATION CRONS 🔥
+    ['id' => 'seo_tracker', 'title' => 'SEO Rank Tracker', 'desc' => 'Auto-checks Google SERP positions daily.', 'file' => 'cron_seo_tracker.php', 'log' => 'cron_seo_tracker.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-chart-line', 'color' => '#6366f1', 'is_seo' => true],
+    ['id' => 'seo_injector', 'title' => 'SEO Keyword Injector', 'desc' => 'Injects golden keywords globally.', 'file' => 'cron_seo_injector.php', 'log' => 'cron_seo_injector.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-syringe', 'color' => '#10b981', 'is_seo' => true],
+    ['id' => 'seo_mapper', 'title' => 'SEO Meta Mapper', 'desc' => 'Auto-writes Meta Titles & Descriptions.', 'file' => 'cron_seo_mapper.php', 'log' => 'cron_seo_mapper.log', 'freq' => 'Every 30 Mins', 'min' => 30, 'icon' => 'fa-magic', 'color' => '#8b5cf6', 'is_seo' => true],
+    ['id' => 'seo_hunter', 'title' => 'SEO Competitor Hunter', 'desc' => 'Auto-steals competitor keywords daily.', 'file' => 'cron_seo_hunter.php', 'log' => 'cron_seo_hunter.log', 'freq' => 'Once Daily', 'min' => 1440, 'icon' => 'fa-user-secret', 'color' => '#ef4444', 'is_seo' => true]
 ];
 
 // --- AJAX EXECUTION LOGIC ---
@@ -42,42 +42,49 @@ if (isset($_POST['run_cron_id'])) {
     }
 
     if ($targetCron) {
-        $filePath = __DIR__ . '/../includes/cron/' . $targetCron['file'];
-        $logDir = __DIR__ . '/../assets/logs/';
+        // Smart Path Routing & Auto-Detect
+        $path1 = __DIR__ . '/../includes/cron/' . $targetCron['file'];
+        $path2 = __DIR__ . '/../includes/crons/' . $targetCron['file'];
+        
+        $filePath = file_exists($path1) ? $path1 : $path2;
+        
+        // Log Directories routing based on user's exact folder structure
+        $logDir = isset($targetCron['is_seo']) ? __DIR__ . '/cron/logs/' : __DIR__ . '/../assets/logs/';
         $logPath = $logDir . $targetCron['log'];
+
+        // Strict File Check Before Doing Anything!
+        if (!file_exists($filePath)) {
+            echo "❌ CRITICAL ERROR: Script not found!\n\nSystem checked both:\n1. includes/cron/{$targetCron['file']}\n2. includes/crons/{$targetCron['file']}\n\nPlease ensure you uploaded the file to one of these folders.";
+            exit;
+        }
 
         // 1. Ensure Log Directory Exists
         if (!is_dir($logDir)) {
             mkdir($logDir, 0777, true);
         }
 
-        // 2. Force Create/Touch Log File Immediately (Fixes "Never Run")
+        // 2. Safe Log Initialization
         $initMsg = "[" . date('Y-m-d H:i:s') . "] STARTING: " . $targetCron['title'] . "...\n";
         file_put_contents($logPath, $initMsg, FILE_APPEND);
 
-        if (file_exists($filePath)) {
-            // 3. Execute Script & Capture Output
-            ob_start();
-            try {
-                include $filePath;
-            } catch (Exception $e) {
-                echo "Script Exception: " . $e->getMessage();
-            } catch (Throwable $t) {
-                echo "Script Error: " . $t->getMessage();
-            }
-            $output = ob_get_clean();
-
-            // 4. Save Output to Log
-            $finalOutput = "RESULT:\n" . ($output ? trim($output) : "Executed successfully (No visible output).") . "\n--------------------\n";
-            file_put_contents($logPath, $finalOutput, FILE_APPEND);
-
-            // 5. Send back to Browser
-            echo $output ? $output : "✅ Task Completed.";
-        } else {
-            $errMsg = "❌ Error: File not found at $filePath";
-            file_put_contents($logPath, $errMsg . "\n", FILE_APPEND);
-            echo $errMsg;
+        // 3. Execute Script & Capture Output
+        ob_start();
+        try {
+            include $filePath;
+        } catch (Exception $e) {
+            echo "Script Exception: " . $e->getMessage();
+        } catch (Throwable $t) {
+            echo "Script Error: " . $t->getMessage();
         }
+        $output = ob_get_clean();
+
+        // 4. Save Output to Log
+        $finalOutput = "RESULT:\n" . ($output ? trim(strip_tags($output)) : "Executed successfully (No visible output).") . "\n--------------------\n";
+        file_put_contents($logPath, $finalOutput, FILE_APPEND);
+
+        // 5. Send back to Browser
+        echo $output ? $output : "✅ Task Completed Successfully.";
+        
     } else {
         echo "❌ Invalid Cron ID requested.";
     }
@@ -88,21 +95,32 @@ if (isset($_POST['run_cron_id'])) {
 include '_header.php';
 
 // --- LOG HELPER ---
-function getCronStatus($logName, $expectedIntervalMinutes) {
-    $logPath = __DIR__ . '/../assets/logs/' . $logName;
+function getCronStatus($cron) {
+    // Log Routing
+    $logPath = isset($cron['is_seo']) ? __DIR__ . '/cron/logs/' . $cron['log'] : __DIR__ . '/../assets/logs/' . $cron['log'];
     
+    // Auto-Detect Script Path
+    $path1 = __DIR__ . '/../includes/cron/' . $cron['file'];
+    $path2 = __DIR__ . '/../includes/crons/' . $cron['file'];
+    $scriptPath = file_exists($path1) ? $path1 : $path2;
+    
+    // If the actual PHP file doesn't exist, flag it immediately
+    if (!file_exists($scriptPath)) {
+        return ['status' => 'never', 'label' => 'File Missing', 'class' => 'bg-secondary', 'time' => 'N/A', 'content' => "Error: The actual script '{$cron['file']}' is missing from your 'includes/cron/' folder."];
+    }
+
     if (!file_exists($logPath)) {
-        return ['status' => 'never', 'label' => 'Never Run', 'class' => 'bg-secondary', 'time' => 'N/A', 'content' => 'No logs found. Click "Run Now".'];
+        return ['status' => 'never', 'label' => 'Never Run', 'class' => 'bg-secondary', 'time' => 'N/A', 'content' => 'No logs found. Click "Run Now" to test.'];
     }
 
     $lastModified = filemtime($logPath);
     $timeDiff = time() - $lastModified;
     $timeAgo = humanTiming($lastModified) . ' ago';
     
-    $content = tailCustom($logPath, 50); // Increased lines
+    $content = tailCustom($logPath, 50); 
 
     // Grace period calculation
-    $gracePeriod = $expectedIntervalMinutes * 60 * 3; 
+    $gracePeriod = $cron['min'] * 60 * 3; 
     
     if ($timeDiff < $gracePeriod) {
         return ['status' => 'running', 'label' => 'Healthy', 'class' => 'bg-success', 'time' => $timeAgo, 'content' => $content];
@@ -145,7 +163,7 @@ function tailCustom($filepath, $lines = 10) {
     --border: #e2e8f0; --shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
 }
 
-.cron-wrapper { padding: 2rem; max-width: 1600px; margin: 0 auto; }
+.cron-wrapper { padding: 2rem; max-width: 1600px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
 
 /* Header */
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
@@ -245,29 +263,34 @@ function tailCustom($filepath, $lines = 10) {
 .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; }
 .log-modal { background: #1e293b; width: 90%; max-width: 800px; height: 80vh; border-radius: 20px; display: flex; flex-direction: column; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
 .modal-header { padding: 1.5rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; color: #fff; }
-.modal-body { flex-grow: 1; padding: 1.5rem; overflow: auto; font-family: 'Courier New', monospace; color: #a5f3fc; white-space: pre-wrap; font-size: 0.9rem; }
+.modal-body { flex-grow: 1; padding: 1.5rem; overflow: auto; font-family: 'Courier New', monospace; color: #a5f3fc; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; }
 .modal-close { background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; }
+.modal-close:hover { color: #ef4444; }
 </style>
 
 <div class="cron-wrapper">
     <div class="page-header">
         <div>
-            <h1 class="page-title">⚡ Automation Center</h1>
-            <p class="page-desc">Manage background tasks. Copy commands to cPanel for automation.</p>
+            <h1 class="page-title"><i class="fas fa-bolt text-warning me-2"></i> Automation Center</h1>
+            <p class="page-desc">Manage background tasks and view execution logs. Copy commands to cPanel for full automation.</p>
         </div>
-        <div style="color: var(--text-muted); font-size: 0.9rem;">
-            <i class="fa-regular fa-clock"></i> Server Time: <?= date('d M, H:i') ?>
+        <div style="color: var(--text-muted); font-size: 0.95rem; font-weight: 600;">
+            <i class="fa-regular fa-clock me-1"></i> Server Time: <?= date('d M, H:i') ?>
         </div>
     </div>
 
     <div class="cron-grid">
         <?php foreach($crons as $cron): 
-            $status = getCronStatus($cron['log'], $cron['min']);
+            $status = getCronStatus($cron);
             $stripeClass = 'status-' . $status['status'];
             $badgeClass = 'badge-' . $status['status'];
             
-            // Fixed Path Construction
-            $realPath = realpath(__DIR__ . '/../includes/cron/' . $cron['file']);
+            // Smart Path Construction for Commands
+            $path1 = __DIR__ . '/../includes/cron/' . $cron['file'];
+            $path2 = __DIR__ . '/../includes/crons/' . $cron['file'];
+            $rawPath = file_exists($path1) ? $path1 : $path2;
+            
+            $realPath = realpath($rawPath) ?: $rawPath; 
             $command = $php_bin . ' ' . $realPath;
         ?>
         <div class="cron-card">
@@ -307,10 +330,10 @@ function tailCustom($filepath, $lines = 10) {
                 </div>
 
                 <div class="card-actions">
-                    <button class="btn-action btn-run" onclick="runCron('<?= $cron['id'] ?>', '<?= $cron['title'] ?>')">
+                    <button class="btn-action btn-run" onclick="runCron('<?= $cron['id'] ?>', '<?= addslashes($cron['title']) ?>')">
                         <i class="fa-solid fa-play"></i> Run Now
                     </button>
-                    <button class="btn-action btn-log" onclick="openLog('<?= htmlspecialchars(json_encode($status['content']), ENT_QUOTES) ?>', '<?= $cron['title'] ?>')">
+                    <button class="btn-action btn-log" onclick="openLog('<?= htmlspecialchars(json_encode($status['content']), ENT_QUOTES) ?>', '<?= addslashes($cron['title']) ?>')">
                         <i class="fa-solid fa-terminal"></i> Logs
                     </button>
                 </div>
@@ -322,15 +345,15 @@ function tailCustom($filepath, $lines = 10) {
 
 <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
-    <h3 style="margin-top: 20px; color: #4f46e5;">Running Cron Job...</h3>
-    <p style="color: #6b7280;">Please wait while we execute the script.</p>
+    <h3 style="margin-top: 20px; color: #4f46e5; font-weight: 800;">Executing Engine...</h3>
+    <p style="color: #6b7280; font-weight: 600;">Please wait while the background script completes.</p>
 </div>
 
 <div class="modal-overlay" id="logModal">
     <div class="log-modal">
         <div class="modal-header">
-            <h4 style="margin:0;"><i class="fa-solid fa-file-code"></i> <span id="modalTitle">Logs</span></h4>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <h4 style="margin:0; font-weight: 800;"><i class="fa-solid fa-file-code me-2" style="color: #6366f1;"></i> <span id="modalTitle">Logs</span></h4>
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body" id="modalBody"></div>
     </div>
@@ -364,13 +387,14 @@ function runCron(id, title) {
     .then(data => {
         overlay.style.display = 'none';
         
-        // Use SweetAlert to show the live response
+        let isError = data.includes("❌ CRITICAL ERROR") || data.includes("Error:");
+        
         Swal.fire({
-            title: 'Execution Report: ' + title,
-            html: '<pre style="text-align:left; background:#f4f4f4; padding:10px; max-height:300px; overflow:auto; font-size:11px;">' + data + '</pre>',
-            icon: 'info',
+            title: title + ' Report',
+            html: '<div style="text-align:left; background:#1e293b; color:#a5f3fc; padding:15px; border-radius:10px; max-height:300px; overflow:auto; font-family:Courier New, monospace; font-size:12px;">' + data + '</div>',
+            icon: isError ? 'error' : 'success',
             confirmButtonColor: '#6366f1',
-            confirmButtonText: 'Refresh Page'
+            confirmButtonText: 'Understood'
         }).then(() => {
             location.reload();
         });
@@ -379,17 +403,22 @@ function runCron(id, title) {
         overlay.style.display = 'none';
         Swal.fire({
             title: 'Connection Error',
-            text: 'Could not contact server.',
-            icon: 'error'
+            text: 'Could not contact server. Please try again.',
+            icon: 'error',
+            confirmButtonColor: '#ef4444'
         });
     });
 }
 
 function openLog(content, title) {
-    let cleanContent = content.replace(/^"|"$/g, '');
-    document.getElementById('modalTitle').innerText = title + ' Logs';
-    document.getElementById('modalBody').innerText = cleanContent || "No logs found.";
-    document.getElementById('logModal').style.display = 'flex';
+    // Clean string JSON formatting
+    let cleanContent = content.replace(/^"|"$/g, '').replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+    
+    document.getElementById('modalTitle').innerText = title + ' Terminal Logs';
+    document.getElementById('modalBody').innerText = cleanContent || "No execution logs found yet. Click 'Run Now' to generate.";
+    
+    const modal = document.getElementById('logModal');
+    modal.style.display = 'flex';
 }
 
 function closeModal() {
