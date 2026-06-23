@@ -1,8 +1,14 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// --- 🔒 0. STRICT LOGIN CHECK ---
-if (!isset($_SESSION['user_id'])) {
+// 🔥 SMART PUBLIC SEO EXCEPTION LIST 🔥
+// In pages par login ka lock bypass ho jayega taake SEO/Guests inko access kar sakein
+$current_page = basename($_SERVER['PHP_SELF']);
+$public_seo_pages = ['index.php', 'services.php', 'faq.php', 'api_docs.php', 'about.php', 'contact.php', 'terms.php', 'blog.php', 'blog_post.php', 'products.php', 'store.php', 'product_details.php'];
+$is_public_page = in_array($current_page, $public_seo_pages);
+
+// --- 🔒 0. SMART LOGIN CHECK ---
+if (!isset($_SESSION['user_id']) && !$is_public_page) {
     header("Location: ../login.php");
     exit;
 }
@@ -14,7 +20,13 @@ if (file_exists(__DIR__ . '/../includes/helpers.php')) {
 if (file_exists(__DIR__ . '/../includes/db.php')) {
     require_once __DIR__ . '/../includes/db.php'; 
 }
-requireLogin();
+
+// Sirf tab requireLogin() chalao jab user dashboard mein ho, public SEO page par nahi
+if (isset($_SESSION['user_id']) || !$is_public_page) {
+    if(function_exists('requireLogin')) {
+        requireLogin();
+    }
+}
 
 // --- 🚫 1.5 REAL-TIME BAN CHECK ---
 if (isset($_SESSION['user_id'])) {
@@ -61,8 +73,7 @@ if (isset($_SESSION['user_id'])) {
 }
 
 // --- 💰 USER BALANCE & SITE DATA ---
-$user_balance = getUserBalance($_SESSION['user_id']);
-$current_page = basename($_SERVER['PHP_SELF']);
+$user_balance = isset($_SESSION['user_id']) ? getUserBalance($_SESSION['user_id']) : 0.00;
 $site_name = $GLOBALS['settings']['site_name'] ?? 'LikexFollow';
 $logo = $GLOBALS['settings']['site_logo'] ?? '';
 
@@ -81,6 +92,12 @@ $seo = $stmt->fetch();
 
 $meta_title = !empty($seo['meta_title']) ? $seo['meta_title'] : ($GLOBALS['settings']['seo_title'] ?? $site_name);
 $meta_desc = !empty($seo['meta_description']) ? $seo['meta_description'] : ($GLOBALS['settings']['seo_desc'] ?? '');
+
+// 🚀 INTEGRATING BEAST SEO AUTO-INJECTOR 🚀
+// Yeh poori website ke header meta tags aur JSON schema ko control karega
+if (file_exists(__DIR__ . '/../seo_auto_injector.php')) {
+    require_once __DIR__ . '/../seo_auto_injector.php';
+}
 
 // ==========================================
 // 🚀 DYNAMIC MENU FETCH (WITH SMART FILTER)
@@ -140,8 +157,13 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title><?= htmlspecialchars($meta_title) ?></title>
     
+    <?php if (isset($beast_seo_injection)): ?>
+        <?= $beast_seo_injection ?>
+    <?php else: ?>
+        <title><?= htmlspecialchars($meta_title) ?></title>
+        <meta name="description" content="<?= htmlspecialchars($meta_desc) ?>">
+    <?php endif; ?>
     <link rel="shortcut icon" href="https://likexfollow.com/assets/img/favicon.jpg">
     <link rel="stylesheet" href="../assets/css/smm_style.css?v=4.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -364,9 +386,17 @@ try {
             <div class="nav-btn curr-btn" onclick="showCurrencyPopupBox()" title="Currency">
                 <span class="fs-5" style="line-height:1;"><?= $curr_flag ?></span>
             </div>
+            
+            <?php if (isset($_SESSION['user_id'])): ?>
             <a href="profile.php" class="nav-btn icon-btn" title="Profile">
                 <i class="fas fa-user-circle" style="font-size: 1.6rem; color: #4f46e5;"></i>
             </a>
+            <?php else: ?>
+            <a href="login.php" class="nav-btn icon-btn" title="Login" style="background: #eef2ff;">
+                <i class="fas fa-sign-in-alt" style="font-size: 1.3rem; color: #4f46e5;"></i>
+            </a>
+            <?php endif; ?>
+
             <button class="hamburger" id="hamBtn">
                 <span class="bar"></span><span class="bar"></span><span class="bar"></span>
             </button>
@@ -407,11 +437,20 @@ try {
             <?php endif; ?>
         <?php endforeach; ?>
     </div>
+    
+    <?php if (isset($_SESSION['user_id'])): ?>
     <div class="drawer-footer">
         <a href="../logout.php" class="logout-btn-styled">
             <i class="fas fa-sign-out-alt"></i> Logout
         </a>
     </div>
+    <?php else: ?>
+    <div class="drawer-footer">
+        <a href="login.php" class="logout-btn-styled" style="background: #eef2ff; color: var(--primary);">
+            <i class="fas fa-sign-in-alt"></i> Login to Account
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <div id="uniqueCurrencyPopup" class="currency-modal-supreme" onclick="if(event.target===this) hideCurrencyPopupBox()">
