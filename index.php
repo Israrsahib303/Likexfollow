@@ -1,6 +1,41 @@
 <?php
 require_once __DIR__ . '/includes/helpers.php';
 
+// --- 🚀 ADVANCED 2-WAY SEO ENGINE STARTS ---
+global $db; // Assuming $db is available via helpers.php
+$current_public_page = basename($_SERVER['PHP_SELF']);
+$current_url = $_SERVER['REQUEST_URI'];
+$user_ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+
+// Default SEO Fallbacks
+$seo_title = "LikexFollow - Cheapest SMM Panel Pakistan & Digital Services";
+$seo_desc = "LikexFollow is Pakistan's #1 SMM Panel offering cheap Instagram followers, TikTok likes, YouTube views, and Netflix subscriptions. Instant delivery & wholesale rates.";
+$seo_kws = "likexfollow, likexfollow.com, like x follow, smm panel pakistan, cheapest smm panel, buy followers pakistan, digital store pakistan";
+
+if (isset($db)) {
+    try {
+        // 1. Backend-to-Frontend: Fetch Expert SEO Data
+        $seo_stmt = $db->prepare("SELECT meta_title, meta_description, meta_keywords FROM site_seo WHERE page_name = ? OR page_url = ? LIMIT 1");
+        $seo_stmt->execute([$current_public_page, $current_url]);
+        $seo_data = $seo_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($seo_data) {
+            if (!empty($seo_data['meta_title'])) $seo_title = $seo_data['meta_title'];
+            if (!empty($seo_data['meta_description'])) $seo_desc = $seo_data['meta_description'];
+            if (!empty($seo_data['meta_keywords'])) $seo_kws = $seo_data['meta_keywords'];
+        }
+        
+        // 2. Frontend-to-Backend: Live Traffic & Bot Logger (Updates semrush_log_analyzer.php)
+        $log_stmt = $db->prepare("INSERT IGNORE INTO semrush_server_logs (ip_address, crawl_url, status_code, user_agent, crawl_date) VALUES (?, ?, ?, ?, ?)");
+        $log_stmt->execute([$user_ip, $current_url, 200, $user_agent, date('Y-m-d H:i:s')]);
+        
+    } catch (PDOException $e) {
+        // Silently ignore if tables are not fully set up yet
+    }
+}
+// --- 🚀 ADVANCED 2-WAY SEO ENGINE ENDS ---
+
 // 1. Security & Redirects
 if (isLoggedIn()) {
     if (isAdmin()) {
@@ -17,30 +52,26 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
-    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST'] . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); ?>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LikexFollow - Cheapest SMM Panel Pakistan & Digital Services</title>
-    <meta property="og:site_name" content="LikexFollow">
-<meta property="og:title" content="LikexFollow - #1 Cheapest SMM Panel Pakistan">
-<meta property="og:description" content="Get instant Instagram followers, TikTok likes & YouTube views starting at Rs. 10. Join Pakistan's most trusted SMM reseller panel.">
-<meta property="og:image" content="https://likexfollow.com/assets/img/site_logo_1764671832.png">
-<meta property="og:url" content="https://likexfollow.com/">
-<meta property="og:type" content="website">
-<meta name="description" content="LikexFollow is Pakistan's #1 SMM Panel offering cheap Instagram followers, TikTok likes, YouTube views, and Netflix subscriptions. Instant delivery & wholesale rates.">
-<meta name="keywords" content="likexfollow, likexfollow.com, like x follow, smm panel pakistan, cheapest smm panel, buy followers pakistan, digital store pakistan">
-<meta name="author" content="LikexFollow Team">
-
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://likexfollow.com/">
-<meta property="og:title" content="LikexFollow - #1 SMM Panel & Digital Store">
-<meta property="og:description" content="Boost your social media with LikexFollow. Get instant followers, likes, and premium subscriptions at wholesale prices.">
-<meta property="og:image" content="https://likexfollow.com/assets/img/site_logo_1764671832.png">
     
+    <?php 
+    // Injecting the Automated API SEO Engine
+    if (file_exists(__DIR__ . '/seo_auto_injector.php')) {
+        require_once __DIR__ . '/seo_auto_injector.php'; 
+        echo $beast_seo_injection; 
+    } else {
+        // Fallback in case file is missing
+        echo "<title>" . htmlspecialchars($seo_title) . "</title>";
+        echo "<meta name='description' content='" . htmlspecialchars($seo_desc) . "'>";
+        echo "<meta name='keywords' content='" . htmlspecialchars($seo_kws) . "'>";
+    }
+    ?>
+    <meta name="author" content="LikexFollow Team">
     <link rel="shortcut icon" href="https://likexfollow.com/assets/img/favicon.jpg">
-<link rel="icon" type="image/jpeg" sizes="32x32" href="https://likexfollow.com/assets/img/favicon.jpg">
-<link rel="icon" type="image/jpeg" sizes="192x192" href="https://likexfollow.com/assets/img/favicon.jpg">
-<link rel="apple-touch-icon" href="https://likexfollow.com/assets/img/favicon.jpg">
+    <link rel="icon" type="image/jpeg" sizes="32x32" href="https://likexfollow.com/assets/img/favicon.jpg">
+    <link rel="icon" type="image/jpeg" sizes="192x192" href="https://likexfollow.com/assets/img/favicon.jpg">
+    <link rel="apple-touch-icon" href="https://likexfollow.com/assets/img/favicon.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
@@ -159,48 +190,6 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
             100% { transform: translateX(-50%); }
         }
     </style>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": "https://likexfollow.com/#organization",
-      "name": "LikexFollow",
-      "url": "https://likexfollow.com/",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://likexfollow.com/assets/img/site_logo_1764671832.png",
-        "width": 600,
-        "height": 60
-      },
-      "sameAs": [
-        "https://www.instagram.com/likexfollow",
-        "https://www.facebook.com/likexfollow",
-        "https://twitter.com/likexfollow"
-      ],
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "telephone": "+92-3097856447", 
-        "contactType": "customer support",
-        "areaServed": ["PK", "US", "GB"],
-        "availableLanguage": ["en", "ur"]
-      }
-    },
-    {
-      "@type": "WebSite",
-      "@id": "https://likexfollow.com/#website",
-      "url": "https://likexfollow.com/",
-      "name": "LikexFollow",
-      "alternateName": "LikexFollow SMM Panel",
-      "description": "LikexFollow is the cheapest SMM Panel in Pakistan for Instagram followers, TikTok likes, and YouTube views.",
-      "publisher": {
-        "@id": "https://likexfollow.com/#organization"
-      }
-    }
-  ]
-}
-</script>
 </head>
 <body class="antialiased selection:bg-indigo-500 selection:text-white">
 
@@ -273,7 +262,11 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
                     </div>
                     
                     <p class="text-lg text-slate-600 mb-8 max-w-lg leading-relaxed font-medium">
-                        <strong>LikexFollow</strong> is a <strong>Direct Provider</strong>. We control the servers. Get <strong>Instant Followers</strong>, <strong>Non-Drop Likes</strong>, and <strong>Real Views</strong> at factory prices.
+                        <?php 
+                        $hero_text = "<strong>LikexFollow</strong> is a <strong>Direct Provider</strong>. We control the servers. Get <strong>Instant Followers</strong>, <strong>Non-Drop Likes</strong>, and <strong>Real Views</strong> at factory prices.";
+                        // 🕸️ Auto Spider Linker Active!
+                        echo function_exists('auto_spider_link') ? auto_spider_link($hero_text, $db) : $hero_text; 
+                        ?>
                     </p>
                     
                     <div class="flex flex-col gap-4 max-w-md">
@@ -438,7 +431,14 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
                 <div data-aos="fade-right">
                     <div class="inline-block px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full mb-4">MARKET LEADER</div>
                     <h2 class="font-display font-bold text-4xl text-slate-900 mb-6">Why We Are The <span class="text-primary">Father</span> of All Panels?</h2>
-                    <p class="text-lg text-slate-600 mb-8">Most SMM panels are just "Resellers". They buy from us and sell to you at higher prices. <strong>LikexFollow is the Source.</strong> When you buy here, you cut the middleman.</p>
+                    
+                    <p class="text-lg text-slate-600 mb-8">
+                        <?php 
+                        $why_us_text = "Most SMM panels are just \"Resellers\". They buy from us and sell to you at higher prices. <strong>LikexFollow is the Source.</strong> When you buy here, you cut the middleman.";
+                        // 🕸️ Auto Spider Linker Active!
+                        echo function_exists('auto_spider_link') ? auto_spider_link($why_us_text, $db) : $why_us_text; 
+                        ?>
+                    </p>
                     
                     <div class="space-y-6">
                         <div class="flex gap-4">
@@ -509,7 +509,60 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
         </div>
     </section>
 
-    <footer class="bg-white pt-20 pb-10 border-t border-slate-200">
+    <section class="py-16 bg-gradient-to-b from-white to-slate-50 border-t border-slate-100">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="text-center mb-10" data-aos="fade-up">
+                <h3 class="font-display font-bold text-3xl text-slate-900 mb-2">Explore LikexFollow</h3>
+                <p class="text-slate-500">Everything you need to grow your digital empire.</p>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" data-aos="fade-up" data-aos-delay="100">
+                <a href="faq.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg hover:-translate-y-2 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="help-circle" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 text-sm">FAQs</span>
+                </a>
+
+                <a href="api_docs.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg hover:-translate-y-2 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="code-2" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 text-sm">API Docs</span>
+                </a>
+
+                <a href="blog.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg hover:-translate-y-2 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="file-text" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 text-sm">Our Blog</span>
+                </a>
+
+                <a href="about.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg hover:-translate-y-2 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="users" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 text-sm">About Us</span>
+                </a>
+
+                <a href="contact.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg hover:-translate-y-2 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="message-square" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 text-sm">Contact</span>
+                </a>
+
+                <a href="terms.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg hover:-translate-y-2 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="file-check" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 text-sm">Terms</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-white pt-10 pb-10 border-t border-slate-200">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <h2 class="font-display font-bold text-4xl mb-6">Ready to dominate?</h2>
             <p class="text-slate-500 mb-8">Join the elite club of successful influencers and agencies.</p>
@@ -518,14 +571,6 @@ $site_logo = $GLOBALS['settings']['site_logo'] ?? '';
                  <button onclick="window.location.href='register.php'" class="px-10 py-4 bg-slate-900 text-white font-bold rounded-full hover:bg-primary transition-all shadow-xl hover:-translate-y-1">Create Free Account</button>
             </div>
             
-            <div class="flex flex-wrap justify-center gap-8 text-sm text-slate-500 font-medium mb-8">
-                <a href="services.php" class="hover:text-primary transition-colors">Services</a>
-                <a href="premium_store.php" class="hover:text-primary transition-colors">Premium Store</a>
-                <a href="api_docs.php" class="hover:text-primary transition-colors">API Docs</a>
-                <a href="terms.php" class="hover:text-primary transition-colors">Terms</a>
-                <a href="blog.php" class="hover:text-primary transition-colors">Blog</a>
-            </div>
-
             <p class="text-slate-400 mt-10 text-sm">© <?php echo date("Y"); ?> LikexFollow. Made for Winners.</p>
         </div>
     </footer>
