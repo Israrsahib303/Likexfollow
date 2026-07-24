@@ -41,9 +41,9 @@ if (!isset($_SESSION['login_attempts'])) {
 if ($_SESSION['login_attempts'] >= $max_attempts) {
     $time_since_last = time() - $_SESSION['last_attempt_time'];
     if ($time_since_last < $lockout_time) {
-        die("<!DOCTYPE html><html><body style='background:#f4f7fc;color:#d32f2f;display:flex;align-items:center;justify-content:center;height:100vh;font-family:monospace;font-size:2rem;text-align:center;letter-spacing:1px;margin:0;padding:20px;box-sizing:border-box;'>
-        <div style='background:#fff; border: 2px solid #d32f2f; padding: 40px 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(211,47,47,0.15); max-width:90%;'>
-        🚫 SYSTEM LOCKED BY ISRAR LIAQAT.<br><br><span style='font-size:1.2rem; color:#666;'>WE HAVE YOUR LOCATION. EXECUTING COUNTER-MEASURES.</span></div></body></html>");
+        die("<!DOCTYPE html><html><body style='background:#F5F2EA;color:#3D3929;display:flex;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:1.4rem;text-align:center;margin:0;padding:20px;box-sizing:border-box;'>
+        <div style='background:#fff; border: 1px solid #E8E4D9; padding: 48px 36px; border-radius: 16px; box-shadow: 0 8px 24px rgba(61,57,41,0.08); max-width:440px;'>
+        🔒 System locked by Israr Liaqat.<br><br><span style='font-size:1rem; color:#83816D; font-weight:400;'>Too many attempts. Please try again in 15 minutes.</span></div></body></html>");
     } else {
         $_SESSION['login_attempts'] = 0;
     }
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['login_attempts']++;
             $_SESSION['last_attempt_time'] = time();
             usleep(rand(200000, 500000)); // Slow down response
-            $error = "ACCESS DENIED. ISRAR IS WATCHING.";
+            $error = "Access denied. Check your credentials and try again.";
         }
     }
 }
@@ -113,546 +113,700 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SECURE ACCESS // LEVEL 9</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <title>Secure Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        /* THEME: PREMIUM WHITE & PURPLE MINIMALIST */
+        /* ==========================================================
+           CLAUDE.AI-STYLE INTERFACE
+           Warm cream surfaces, muted clay accent, calm serif headings,
+           soft shadows, gentle rounded corners, quiet motion.
+           ========================================================== */
         :root {
-            --primary: #6a00ff;
-            --accent: #bc13fe;
-            --bg-color: #f4f7fc;
-            --surface: rgba(255, 255, 255, 0.85);
-            --surface-border: rgba(106, 0, 255, 0.1);
-            --text-main: #1e1e2d;
-            --text-muted: #7e8299;
-            --danger: #f1416c;
-            --success: #50cd89;
+            --bg: #FAF9F5;
+            --bg-panel: #F0EEE5;
+            --surface: #FFFFFF;
+            --border: #E5E2D9;
+            --border-soft: #ECE9DF;
+            --text-primary: #3D3929;
+            --text-secondary: #6B6754;
+            --text-muted: #93917E;
+            --clay: #C96442;
+            --clay-hover: #B85C3D;
+            --clay-soft: #F3E7DE;
+            --success: #6A8759;
+            --danger: #BF4C3B;
+            --danger-soft: #FBEEEC;
+            --radius-lg: 20px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --ease: cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { -webkit-font-smoothing: antialiased; }
 
         body {
-            background-color: var(--bg-color);
-            min-height: 100vh; /* Changed for Mobile Fix */
+            background: var(--bg);
+            min-height: 100vh;
+            width: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .shell {
+            width: 100%;
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        /* ================= LEFT PANEL ================= */
+        .side-panel {
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 64px;
+            position: relative;
+            border-right: 1px solid var(--border);
+        }
+
+        .side-content {
+            max-width: 420px;
+        }
+
+        .mark {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--clay);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Poppins', sans-serif;
-            overflow-x: hidden; 
-            overflow-y: auto; /* Allows scrolling if keyboard opens on small mobiles */
-            color: var(--text-main);
-            position: relative;
-            padding: 20px; /* Safe padding for mobile */
+            margin-bottom: 32px;
+            box-shadow: 0 2px 6px rgba(201, 100, 66, 0.25);
         }
 
-        /* --- LIVE BACKGROUND ORBS --- */
-        .bg-orb {
-            position: fixed; /* Fixed so they don't stretch page */
-            border-radius: 50%;
-            filter: blur(80px);
-            z-index: 0;
-            opacity: 0.5;
-            animation: pulse-orb 8s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .orb-1 {
-            width: 50vw; height: 50vw; max-width: 400px; max-height: 400px;
-            background: var(--primary);
-            top: -10%; left: -10%;
-        }
-        .orb-2 {
-            width: 40vw; height: 40vw; max-width: 300px; max-height: 300px;
-            background: var(--accent);
-            bottom: -5%; right: -5%;
-            animation-delay: -4s;
+        .mark svg { width: 22px; height: 22px; }
+
+        .side-content h1 {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-weight: 500;
+            font-size: 2.4rem;
+            line-height: 1.2;
+            color: var(--text-primary);
+            margin-bottom: 18px;
+            letter-spacing: -0.01em;
         }
 
-        @keyframes pulse-orb {
-            0% { transform: scale(1) translate(0, 0); opacity: 0.3; }
-            100% { transform: scale(1.3) translate(30px, -30px); opacity: 0.6; }
+        .side-content p {
+            font-size: 0.98rem;
+            line-height: 1.65;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
         }
 
-        /* --- LIVE PARTICLES (Dust Effect) --- */
-        #particles-container {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1; pointer-events: none; overflow: hidden;
+        .feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
         }
-        .particle {
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .feature-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .feature-icon svg { width: 16px; height: 16px; color: var(--clay); }
+
+        .feature-text {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            padding-top: 5px;
+        }
+
+        .feature-text strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .side-footer {
             position: absolute;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            bottom: 40px;
+            left: 64px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .side-footer .pulse {
+            width: 6px; height: 6px;
             border-radius: 50%;
-            opacity: 0;
-            box-shadow: 0 0 10px var(--accent);
-            animation: float-particle linear infinite;
-        }
-        @keyframes float-particle {
-            0% { transform: translateY(0) scale(0.5); opacity: 0; }
-            30% { opacity: 0.8; transform: translateY(-30vh) scale(1); }
-            100% { transform: translateY(-100vh) scale(0.5); opacity: 0; }
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(106, 135, 89, 0.15);
         }
 
-        /* --- LOGIN PANEL --- */
-        .login-wrapper {
-            position: relative;
+        /* ================= RIGHT: FORM PANEL ================= */
+        .form-panel {
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 32px;
+        }
+
+        .form-card {
             width: 100%;
-            max-width: 420px;
-            z-index: 10;
-            opacity: 0; 
-            transform: translateY(30px);
-            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-            margin: auto;
+            max-width: 400px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
         }
 
-        .login-wrapper.active {
+        .form-card.active {
             opacity: 1;
             transform: translateY(0);
         }
 
-        .glass-panel {
-            background: var(--surface);
-            backdrop-filter: blur(25px) saturate(200%);
-            -webkit-backdrop-filter: blur(25px) saturate(200%);
-            border: 1px solid var(--surface-border);
-            border-radius: 24px;
-            padding: 45px 35px;
-            box-shadow: 0 25px 50px rgba(106, 0, 255, 0.08), 0 0 0 1px rgba(255,255,255,0.5) inset;
-            text-align: center;
-            width: 100%;
+        .form-card h2 {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-weight: 500;
+            font-size: 1.7rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
         }
 
-        .aura-badge {
-            background: rgba(106, 0, 255, 0.05);
-            color: var(--primary);
-            border: 1px solid rgba(106, 0, 255, 0.15);
-            padding: 6px 16px;
-            border-radius: 50px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            display: inline-flex;
-            align-items: center;
-            margin-bottom: 25px;
-            text-transform: uppercase;
-        }
-        
-        .aura-badge span {
-            width: 6px; height: 6px;
-            background: var(--primary);
-            border-radius: 50%;
-            margin-right: 8px;
-            box-shadow: 0 0 8px var(--primary);
-            animation: pulse-dot 1.5s infinite alternate;
+        .form-sub {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.5;
         }
 
-        @keyframes pulse-dot {
-            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--primary); }
-            100% { opacity: 0.3; transform: scale(0.7); box-shadow: 0 0 2px var(--primary); }
-        }
+        .field { margin-bottom: 16px; }
 
-        h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            letter-spacing: 1px;
-            font-size: 1.8rem;
-            margin: 0 0 30px;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .input-group {
-            margin-bottom: 18px;
-            position: relative;
+        .field label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 7px;
         }
 
         input {
             width: 100%;
-            padding: 15px 20px;
-            background: #ffffff;
-            border: 2px solid #e1e3ea;
-            border-radius: 12px;
-            color: var(--text-main);
-            font-family: 'Poppins', sans-serif;
-            font-weight: 500;
-            font-size: 0.95rem;
+            padding: 12px 15px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            font-size: 0.94rem;
             outline: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-            -webkit-appearance: none; /* Mobile rendering fix */
+            transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+            -webkit-appearance: none;
         }
 
-        input::placeholder { color: #a1a5b7; }
+        input::placeholder { color: var(--text-muted); }
+
+        input:hover { border-color: #D6D2C4; }
 
         input:focus {
-            border-color: var(--primary);
-            background: #fff;
-            box-shadow: 0 0 0 4px rgba(106, 0, 255, 0.1);
+            border-color: var(--clay);
+            box-shadow: 0 0 0 3px var(--clay-soft);
         }
 
         .pin-input {
-            letter-spacing: 8px;
-            font-size: 1.2rem;
+            letter-spacing: 6px;
+            font-size: 1rem;
             text-align: center;
-            font-weight: 700;
-            color: var(--primary);
+            font-weight: 500;
             font-family: 'JetBrains Mono', monospace;
         }
-        
+
         .pin-input::placeholder {
-            letter-spacing: 2px;
-            font-size: 0.9rem;
-            font-weight: normal;
+            letter-spacing: 3px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
         }
 
-        /* LIVE BUTTON ANIMATION */
         button {
             width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
-            background-size: 200% 200%;
+            padding: 13px;
+            background: var(--clay);
             border: none;
-            border-radius: 12px;
+            border-radius: var(--radius-sm);
             color: #fff;
-            font-family: 'Poppins', sans-serif;
-            font-weight: 700;
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.94rem;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-            box-shadow: 0 10px 20px rgba(106, 0, 255, 0.2);
-            position: relative;
-            overflow: hidden;
-            animation: gradient-shift 3s infinite alternate;
-        }
-
-        @keyframes gradient-shift {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 100% 50%; }
-        }
-
-        /* Button Live Shimmer Effect */
-        button::after {
-            content: '';
-            position: absolute;
-            top: 0; left: -150%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            transform: skewX(-20deg);
-            animation: button-shimmer 3s infinite;
-        }
-
-        @keyframes button-shimmer {
-            0% { left: -150%; }
-            50% { left: 150%; }
-            100% { left: 150%; }
+            margin-top: 6px;
+            transition: background 0.2s var(--ease), transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+            box-shadow: 0 1px 2px rgba(201, 100, 66, 0.15);
         }
 
         button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(106, 0, 255, 0.3);
+            background: var(--clay-hover);
+            box-shadow: 0 4px 12px rgba(201, 100, 66, 0.25);
+        }
+
+        button:active {
+            transform: scale(0.98);
         }
 
         .error-msg {
+            background: var(--danger-soft);
             color: var(--danger);
-            background: rgba(241, 65, 108, 0.1);
-            border: 1px dashed rgba(241, 65, 108, 0.3);
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 25px;
+            border: 1px solid rgba(191, 76, 59, 0.2);
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 500;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            animation: shake 0.5s;
+            gap: 9px;
+            line-height: 1.4;
         }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+        .error-msg svg { flex-shrink: 0; }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 28px 0 20px;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .divider span {
+            font-size: 0.76rem;
+            color: var(--text-muted);
         }
 
         .server-info {
-            margin-top: 30px;
-            font-size: 0.7rem;
+            font-size: 0.78rem;
             color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-            border-top: 1px solid #eff2f5;
-            padding-top: 20px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
 
-        /* --- HIGH-END WHITE SECURITY HUD MODAL --- */
+        .server-info .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .server-info .status-pill .pulse {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .hp-field { opacity: 0; position: absolute; height: 0; width: 0; pointer-events: none; }
+
+        /* ================= SECURITY CHECK MODAL ================= */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(15px);
+            position: fixed; inset: 0;
+            background: rgba(61, 57, 41, 0.35);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
             z-index: 9999;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 1;
-            transition: opacity 0.5s ease;
-            padding: 15px; /* Mobile safe padding */
+            padding: 16px;
+            opacity: 0;
+            animation: overlay-in 0.35s var(--ease) forwards;
         }
+
+        @keyframes overlay-in { to { opacity: 1; } }
 
         .modal-box {
-            background: #ffffff;
+            background: var(--surface);
             width: 100%;
-            max-width: 450px;
-            border-radius: 20px;
-            padding: 40px;
-            border: 1px solid rgba(241, 65, 108, 0.2);
-            box-shadow: 0 30px 60px rgba(0,0,0,0.1), 0 0 0 4px rgba(241, 65, 108, 0.05);
-            position: relative;
-            overflow: hidden;
+            max-width: 440px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(61, 57, 41, 0.15);
+            padding: 32px;
+            transform: scale(0.96) translateY(8px);
+            opacity: 0;
+            animation: modal-in 0.45s 0.05s var(--ease) forwards;
         }
 
-        /* Purple Scanner Line */
-        .laser-scanner {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 3px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            box-shadow: 0 0 15px var(--primary);
-            animation: scan-hud 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-            z-index: 2;
-        }
-        @keyframes scan-hud { 
-            0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
-        
+        @keyframes modal-in { to { transform: scale(1) translateY(0); opacity: 1; } }
+
         .modal-header {
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 14px;
+            margin-bottom: 18px;
         }
 
-        .modal-icon { 
-            width: 45px; height: 45px;
-            background: rgba(241, 65, 108, 0.1);
-            border-radius: 12px;
+        .modal-icon {
+            width: 42px; height: 42px;
+            border-radius: 11px;
+            background: var(--clay-soft);
             display: flex; align-items: center; justify-content: center;
-            color: var(--danger);
-            font-size: 1.4rem;
+            flex-shrink: 0;
         }
-        
-        .modal-title { 
-            font-family: 'Orbitron'; font-size: 1.2rem; color: var(--text-main); 
-            text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; margin: 0;
+
+        .modal-icon svg { width: 20px; height: 20px; color: var(--clay); }
+
+        .modal-title {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-weight: 500;
+            font-size: 1.15rem;
+            color: var(--text-primary);
         }
 
         .modal-text {
-            font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 25px;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
         }
 
-        /* DARK TERMINAL INSIDE LIGHT MODAL */
         .data-terminal {
-            background: #111118;
-            border: 1px solid #2a2a35;
-            color: #00ff88;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            padding: 20px;
-            text-align: left;
-            margin-bottom: 25px;
-            border-radius: 12px;
-            min-height: 140px;
-            box-shadow: inset 0 5px 15px rgba(0,0,0,0.5);
+            font-size: 0.76rem;
+            line-height: 1.7;
+            padding: 16px 18px;
+            margin-bottom: 22px;
+            border-radius: var(--radius-md);
+            min-height: 150px;
         }
-        
-        .blinking-cursor::after { content: '█'; animation: blink 1s infinite; margin-left: 5px; opacity: 0.8;}
-        @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 0.8; } }
+
+        .data-terminal .accent { color: var(--clay); }
+
+        .blinking-cursor::after { content: '|'; animation: blink 1s step-start infinite; margin-left: 2px; color: var(--clay); }
+        @keyframes blink { 50% { opacity: 0; } }
 
         .modal-btn {
-            background: var(--bg-color); color: var(--text-main); 
-            padding: 14px 25px; border-radius: 10px;
-            border: 1px solid #e1e3ea; 
-            cursor: pointer; font-weight: 600; font-size: 0.9rem;
-            transition: all 0.3s; width: 100%; font-family: 'Poppins', sans-serif;
-        }
-        .modal-btn:hover { 
-            background: #fff; 
-            border-color: var(--primary);
-            color: var(--primary);
-            box-shadow: 0 5px 15px rgba(106, 0, 255, 0.1);
+            width: 100%;
+            background: var(--clay);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 13px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s var(--ease), transform 0.15s var(--ease);
         }
 
-        /* --- TRAP OVERLAY & MEMES --- */
+        .modal-btn:hover { background: var(--clay-hover); }
+        .modal-btn:active { transform: scale(0.98); }
+
+        /* ================= TRAP OVERLAY ================= */
         #trap-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: none;
+            position: fixed; inset: 0;
+            background: var(--bg);
+            z-index: 9999; display: none;
             flex-direction: column; align-items: center; justify-content: center;
-            color: var(--danger);
             padding: 20px; text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s var(--ease);
         }
-        .meme-img {
-            max-width: 90%; width: 350px; border: 4px solid var(--danger); 
-            border-radius: 16px; box-shadow: 0 0 50px rgba(241, 65, 108, 0.4); 
-            margin-bottom: 30px; display: none;
-        }
-        .troll-text { font-family: 'Orbitron'; font-size: 2rem; color: var(--danger); letter-spacing: 2px; margin-bottom: 10px; text-shadow: 0 0 20px rgba(241,65,108,0.5);}
-        .hp-field { opacity: 0; position: absolute; height: 0; width: 0; pointer-events: none; }
 
-        /* --- MOBILE RESPONSIVE TWEAKS --- */
+        #trap-overlay.show { opacity: 1; }
+
+        .trap-icon {
+            width: 64px; height: 64px;
+            border-radius: 16px;
+            background: var(--danger-soft);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .trap-icon svg { width: 30px; height: 30px; color: var(--danger); }
+
+        .meme-img {
+            max-width: 90%; width: 340px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(61, 57, 41, 0.15);
+            margin-bottom: 26px; display: none;
+            opacity: 0;
+            transform: scale(0.95) translateY(8px);
+            transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+        }
+
+        .meme-img.show { opacity: 1; transform: scale(1) translateY(0); }
+
+        .troll-text {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-weight: 500;
+            font-size: 1.9rem;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .trap-sub {
+            color: var(--text-secondary);
+            font-size: 0.94rem;
+            max-width: 380px;
+            line-height: 1.55;
+        }
+
+        #trap-log {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            text-align: left;
+            width: 100%; max-width: 380px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 16px 18px;
+            border-radius: var(--radius-md);
+            margin-top: 22px;
+            line-height: 1.8;
+        }
+
+        #trap-log div {
+            opacity: 0;
+            animation: log-in 0.4s var(--ease) forwards;
+        }
+
+        #trap-log div::before {
+            content: '→ ';
+            color: var(--clay);
+        }
+
+        @keyframes log-in {
+            from { opacity: 0; transform: translateX(-6px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ================= RESPONSIVE ================= */
+        @media (max-width: 900px) {
+            .shell { grid-template-columns: 1fr; }
+            .side-panel { padding: 40px 32px; min-height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+            .side-content h1 { font-size: 1.7rem; }
+            .side-content p { margin-bottom: 28px; font-size: 0.9rem; }
+            .feature-list { gap: 14px; }
+            .side-footer { display: none; }
+            .form-panel { padding: 40px 24px 56px; }
+        }
+
         @media (max-width: 480px) {
-            .glass-panel { padding: 35px 20px; }
-            h1 { font-size: 1.5rem; margin-bottom: 20px; }
-            input { padding: 14px 15px; font-size: 0.9rem; }
-            .pin-input { font-size: 1.1rem; letter-spacing: 5px; }
-            .server-info { flex-direction: column; gap: 8px; text-align: center; }
-            .modal-box { padding: 25px; }
+            .side-panel { padding: 32px 24px; }
+            .mark { width: 38px; height: 38px; margin-bottom: 22px; }
+            .side-content h1 { font-size: 1.5rem; }
+            .form-card h2 { font-size: 1.4rem; }
+            .modal-box { padding: 26px; }
             .troll-text { font-size: 1.5rem; }
-            .data-terminal { min-height: 120px; padding: 15px; font-size: 0.7rem; }
+            .data-terminal { min-height: 130px; padding: 14px; font-size: 0.72rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
 <body oncontextmenu="return false;">
 
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
-    
-    <div id="particles-container"></div>
+    <div class="shell">
 
-    <?php if(!$trigger_trap && empty($_POST)): ?>
-    <div class="modal-overlay" id="securityModal">
-        <div class="modal-box">
-            <div class="laser-scanner"></div>
-            
-            <div class="modal-header">
-                <div class="modal-icon">🛡️</div>
-                <h2 class="modal-title">Security Check</h2>
-            </div>
-            
-            <p class="modal-text">
-                <strong>Identity Scan Active.</strong><br>
-                This gateway is strictly monitored under Israr Liaqat's protocols. Unauthorized requests are logged.
-            </p>
-
-            <div class="data-terminal" id="terminal">
-                <span id="typewriter"></span><span class="blinking-cursor"></span>
-            </div>
-
-            <button class="modal-btn" onclick="closeModal()">Acknowledge</button>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <div class="login-wrapper" id="loginPanel">
-        <div class="glass-panel">
-            <div class="aura-badge"><span></span>SECURED BY ISRAR</div>
-            <h1>SYSTEM ACCESS</h1>
-            
-            <?php if($error): ?>
-                <div class="error-msg">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-                    <?= $error ?>
+        <!-- ============ LEFT SIDE PANEL ============ -->
+        <div class="side-panel">
+            <div class="side-content">
+                <div class="mark">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.2L12 16.4 5.7 20.8 8 13.6 2 9.2h7.6z"/></svg>
                 </div>
+
+                <h1>A secure space for admin access</h1>
+                <p>This gateway is monitored and protected. Sign in with your administrator credentials to continue to your workspace.</p>
+
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <div class="feature-text"><strong>Encrypted by default.</strong> Every session is protected end to end.</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="feature-text"><strong>Rate-limited access.</strong> Repeated failed attempts trigger a cooldown.</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                        <div class="feature-text"><strong>Logged in real time.</strong> All access attempts are recorded.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-footer">
+                <span class="pulse"></span>
+                HOST: <?= strtoupper(explode('.', $_SERVER['SERVER_NAME'])[0] ?? 'LOCAL') ?> · SYSTEM ONLINE
+            </div>
+        </div>
+
+        <!-- ============ RIGHT FORM PANEL ============ -->
+        <div class="form-panel">
+
+            <?php if(!$trigger_trap && empty($_POST)): ?>
+            <div class="modal-overlay" id="securityModal">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <div class="modal-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <h2 class="modal-title">Security check</h2>
+                    </div>
+
+                    <p class="modal-text">
+                        This gateway is monitored. We're running a quick identity check before you continue — this only takes a moment.
+                    </p>
+
+                    <div class="data-terminal" id="terminal">
+                        <span id="typewriter"></span><span class="blinking-cursor"></span>
+                    </div>
+
+                    <button class="modal-btn" onclick="closeModal()">Continue</button>
+                </div>
+            </div>
             <?php endif; ?>
 
-            <form method="POST" autocomplete="off">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off">
+            <div class="form-card" id="loginPanel">
+                <h2>Welcome back</h2>
+                <p class="form-sub">Sign in to access the admin panel.</p>
 
-                <div class="input-group">
-                    <input type="email" name="email" placeholder="Admin ID" required>
-                </div>
-                
-                <div class="input-group">
-                    <input type="password" name="password" placeholder="Passphrase" required>
-                </div>
+                <?php if($error): ?>
+                    <div class="error-msg">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <?= $error ?>
+                    </div>
+                <?php endif; ?>
 
-                <div class="input-group">
-                    <input type="password" name="access_code" class="pin-input" placeholder="PIN CODE" maxlength="4" required>
-                </div>
+                <form method="POST" autocomplete="off">
+                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                    <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off">
 
-                <button type="submit">Authenticate</button>
-            </form>
-            
-            <div class="server-info">
-                <span>HOST: <?= strtoupper(explode('.', $_SERVER['SERVER_NAME'])[0] ?? 'LOCAL') ?></span>
-                <span style="color: var(--primary); font-weight:600;">ACTIVE</span>
+                    <div class="field">
+                        <label for="email">Email address</label>
+                        <input id="email" type="email" name="email" placeholder="you@domain.com" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input id="password" type="password" name="password" placeholder="Enter your password" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="access_code">Access code</label>
+                        <input id="access_code" type="password" name="access_code" class="pin-input" placeholder="4-digit code" maxlength="4" required>
+                    </div>
+
+                    <button type="submit">Sign in</button>
+                </form>
+
+                <div class="divider"><span>SESSION INFO</span></div>
+
+                <div class="server-info">
+                    <span>Encrypted connection</span>
+                    <span class="status-pill"><span class="pulse"></span>Active</span>
+                </div>
             </div>
+
         </div>
     </div>
 
     <div id="trap-overlay">
+        <div class="trap-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
         <img src="https://media.tenor.com/x8v1oNUOmg4AAAAC/rickroll-roll.gif" class="meme-img" id="meme1">
         <img src="https://i.imgflip.com/2/3m6y60.jpg" class="meme-img" id="meme2">
-        
-        <h2 class="troll-text">ACCESS DENIED</h2>
-        <p style="color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;">Israr's Firewall has detected your breach attempt.</p>
-        <div style="margin-top:20px; font-family:'JetBrains Mono', monospace; color:var(--danger); font-size:0.8rem; text-align:left; width: 100%; max-width:400px; background: rgba(241, 65, 108, 0.1); padding: 15px; border-radius: 12px; border: 1px dashed rgba(241, 65, 108, 0.4);" id="trap-log"></div>
+
+        <h2 class="troll-text">Access denied</h2>
+        <p class="trap-sub">That code wasn't right. This attempt has been logged and flagged by the system.</p>
+        <div id="trap-log"></div>
     </div>
 
     <script>
-        // --- 1. LIVE PARTICLES GENERATOR ---
-        function createParticles() {
-            const container = document.getElementById('particles-container');
-            const particleCount = window.innerWidth < 600 ? 15 : 30; // Fewer particles on mobile for performance
-            
-            for(let i=0; i<particleCount; i++) {
-                let p = document.createElement('div');
-                p.classList.add('particle');
-                
-                let size = Math.random() * 4 + 2; // 2px to 6px
-                p.style.width = size + 'px';
-                p.style.height = size + 'px';
-                
-                p.style.left = Math.random() * 100 + 'vw';
-                p.style.top = Math.random() * 100 + 'vh';
-                
-                p.style.animationDuration = (Math.random() * 5 + 3) + 's';
-                p.style.animationDelay = (Math.random() * 5) + 's';
-                
-                container.appendChild(p);
-            }
-        }
-
-        // --- 2. LIVE TYPING & TRACKING EFFECT ---
+        // --- Identity scan terminal text ---
         async function runScanner() {
             const terminal = document.getElementById('typewriter');
-            if(!terminal) return;
+            if (!terminal) return;
 
-            // Fetch IP
             let ip = "Tracing...";
-            let loc = "Unknown Node";
-            
+            let loc = "Unknown";
+
             try {
                 const res = await fetch('https://ipapi.co/json/');
                 const data = await res.json();
                 ip = data.ip || "Hidden";
                 loc = (data.city || "") + ", " + (data.country_name || "");
-            } catch(e) {}
+            } catch (e) {}
 
-            // Detect Device
             const ua = navigator.userAgent;
-            let device = "Desktop Node";
-            if(ua.match(/Android/i)) device = "Android Mobile";
-            else if(ua.match(/iPhone/i)) device = "iOS Device";
-            else if(ua.match(/Windows/i)) device = "Windows Workstation";
+            let device = "Desktop";
+            if (ua.match(/Android/i)) device = "Android";
+            else if (ua.match(/iPhone/i)) device = "iOS";
+            else if (ua.match(/Windows/i)) device = "Windows";
 
             const lines = [
-                "> INIT: SECURITY_PROTOCOL",
-                "> HANDSHAKE ESTABLISHED.",
-                "> GUEST TARGET ACQUIRED.",
-                "> IP_ADDR  : " + ip,
-                "> LOCATION : " + loc,
-                "> CLIENT   : " + device,
-                "> CLEARANCE: PENDING",
-                "> AWAITING OVERRIDE..."
+                "Initializing security protocol...",
+                "Handshake established.",
+                "Session identified.",
+                "IP address:  " + ip,
+                "Location:    " + loc,
+                "Client:      " + device,
+                "Clearance:   pending",
+                "Awaiting confirmation..."
             ];
 
             let lineIndex = 0;
@@ -665,91 +819,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         currentText += lines[lineIndex].charAt(charIndex);
                         terminal.innerHTML = currentText.replace(/\n/g, "<br>");
                         charIndex++;
-                        setTimeout(typeLine, 15); 
+                        setTimeout(typeLine, 14);
                     } else {
                         currentText += "<br>";
                         terminal.innerHTML = currentText;
                         lineIndex++;
                         charIndex = 0;
-                        setTimeout(typeLine, 250);
+                        setTimeout(typeLine, 220);
                     }
                 }
             }
             typeLine();
         }
 
-        // Run functions on load
-        window.onload = function() {
-            createParticles();
+        window.onload = function () {
             runScanner();
             <?php if($_SERVER['REQUEST_METHOD'] === 'POST' || $trigger_trap): ?>
                 document.getElementById('loginPanel').classList.add('active');
             <?php endif; ?>
         };
 
-        // 3. POPUP CONTROL
         function closeModal() {
             const modal = document.getElementById('securityModal');
             const panel = document.getElementById('loginPanel');
-            if(modal) {
+            if (modal) {
+                modal.style.transition = 'opacity 0.35s ease';
                 modal.style.opacity = '0';
                 setTimeout(() => {
                     modal.style.display = 'none';
                     panel.classList.add('active');
-                }, 400);
+                }, 320);
+            } else if (panel) {
+                panel.classList.add('active');
             }
         }
 
-        // 4. SECURITY: Block Inspect
+        <?php if($trigger_trap || !empty($_POST)): ?>
+        document.addEventListener('DOMContentLoaded', function () {
+            const panel = document.getElementById('loginPanel');
+            if (panel) panel.classList.add('active');
+        });
+        <?php endif; ?>
+
+        // Block inspect
         document.addEventListener('contextmenu', event => event.preventDefault());
-        document.onkeydown = function(e) {
-            if(e.keyCode == 123) return false; 
-            if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
-            if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
+        document.onkeydown = function (e) {
+            if (e.keyCode == 123) return false;
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
+            if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
         }
 
-        // 5. TRAP LOGIC (Memes & Trolling)
+        // Trap logic
         <?php if($trigger_trap): ?>
-        (function() {
-            document.getElementById('loginPanel').style.display = 'none';
-            if(document.getElementById('securityModal')) document.getElementById('securityModal').style.display = 'none';
-            
+        (function () {
+            const loginPanel = document.getElementById('loginPanel');
+            const secModal = document.getElementById('securityModal');
+            if (loginPanel) loginPanel.style.display = 'none';
+            if (secModal) secModal.style.display = 'none';
+
             const trap = document.getElementById('trap-overlay');
             const meme1 = document.getElementById('meme1');
             const meme2 = document.getElementById('meme2');
-            
+
             trap.style.display = 'flex';
-            meme1.style.display = 'block'; 
+            requestAnimationFrame(() => {
+                trap.classList.add('show');
+                meme1.style.display = 'block';
+                requestAnimationFrame(() => meme1.classList.add('show'));
+            });
 
-            // Audio
             let audio = new Audio('https://www.myinstants.com/media/sounds/error.mp3');
-            audio.play().catch(e=>{});
+            audio.play().catch(e => {});
 
-            // Log Text
             const logs = document.getElementById('trap-log');
             let lines = [
-                "CRITICAL_ALERT: UNAUTHORIZED PIN.", 
-                "UPLOADING_SNAPSHOT_TO_SERVER...", 
-                "BLOCKING_IP_ADDRESS...", 
-                "DISPATCHING_LOGS_TO_ADMIN..."
+                "Unauthorized access code detected",
+                "Snapshot uploaded to server",
+                "IP address flagged",
+                "Report sent to administrator"
             ];
             let i = 0;
-            
-            setInterval(() => {
-                if(i < lines.length) {
-                    logs.innerHTML += "<div>> " + lines[i] + "</div>";
-                    i++;
-                }
-            }, 1000);
 
-            // Switch to Hacker Meme after 4 seconds
+            const logInterval = setInterval(() => {
+                if (i < lines.length) {
+                    const div = document.createElement('div');
+                    div.textContent = lines[i];
+                    logs.appendChild(div);
+                    i++;
+                } else {
+                    clearInterval(logInterval);
+                }
+            }, 950);
+
             setTimeout(() => {
-                meme1.style.display = 'none';
-                meme2.style.display = 'block';
+                meme1.classList.remove('show');
+                setTimeout(() => {
+                    meme1.style.display = 'none';
+                    meme2.style.display = 'block';
+                    requestAnimationFrame(() => meme2.classList.add('show'));
+                }, 380);
             }, 4000);
 
-            // Redirect
-            setTimeout(() => { window.location.href = "https://www.google.com/search?q=jail+time+for+hacking"; }, 8000);
+            setTimeout(() => {
+                window.location.href = "https://www.google.com/search?q=jail+time+for+hacking";
+            }, 8200);
         })();
         <?php endif; ?>
     </script>
