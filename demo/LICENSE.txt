@@ -1,0 +1,60 @@
+===================================================================
+             PROPRIETARY SOFTWARE LICENSE & DISCLAIMER
+===================================================================
+
+PROJECT:       LikexFollow SMM Automation System (Advanced Core)
+AUTHOR:        Israr Liaqat
+WEBSITE:       https://likexfollow.com
+WHATSAPP:      +92 309 7856447
+COPYRIGHT:     © 2025 Israr Liaqat. All Rights Reserved.
+
+===================================================================
+                       ⚠️ WARNING: READ CAREFULLY
+===================================================================
+
+This software is a proprietary product developed by Israr Liaqat. 
+It is NOT open-source. Unauthorized copying, modification, distribution, 
+or reverse engineering of this code is strictly prohibited.
+
+-------------------------------------------------------------------
+WHY THIS SYSTEM IS ADVANCED & PROTECTED?
+-------------------------------------------------------------------
+
+This is not a standard SMM Panel script. It contains unique, high-level 
+logic developed specifically for LikexFollow.com:
+
+1. 🛡️ LEVEL-3 SECURITY PROTOCOLS:
+   - Automated Console Wiper & Debugger Traps (Anti-Theft).
+   - Domain-Lock Self-Destruct Mechanism.
+   - Server-Side Logic Hiding (Backend is invisible to frontend users).
+
+2. 🔄 INTELLIGENT AUTO-RESEND SYSTEM:
+   - First-in-market logic that auto-detects API failures.
+   - "Smart Retry" button that fixes stuck orders without duplicating them.
+
+3. 💸 SPLIT REFUND & CANCELLATION ENGINE:
+   - Custom logic to separate "Refund" (Money Back) vs "Force Cancel" (No Refund).
+   - Prevents loss from spam orders while protecting user trust.
+
+4. 📊 REAL-TIME COMMAND CENTER:
+   - Dynamic Stats Dashboard calculating Live Profit/Loss.
+   - Provider Error Tracking System (Detailed API Logs).
+
+-------------------------------------------------------------------
+LEGAL NOTICE
+-------------------------------------------------------------------
+
+Any attempt to steal, clone, or sell this "Backend Logic" (PHP Classes, 
+API Handlers, Wallet Systems) will be considered a violation of 
+Intellectual Property Rights.
+
+The frontend design (UI) is just a shell. The real engine resides 
+on the server, protected by this license.
+
+For purchase inquiries or official partnership, contact the owner directly:
+📞 WhatsApp: 03097856447
+🌐 Web: likexfollow.com
+
+===================================================================
+                MADE WITH 🔥 FOR LEGENDS ONLY
+===================================================================
