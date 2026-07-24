@@ -116,6 +116,7 @@ $raw_master_menu = [
         'children' => [
             ['label' => 'Dashboard', 'link' => 'smm_dashboard.php', 'icon' => 'fa-tachometer-alt'],
             ['label' => 'Orders', 'link' => 'smm_orders.php', 'icon' => 'fa-shopping-cart'],
+            ['label' => 'Refill Manager', 'link' => 'refill_manager.php', 'icon' => 'fa-arrows-rotate'], // <-- NEW REFILL MENU ADDED HERE
             ['label' => 'Services', 'link' => 'smm_services.php', 'icon' => 'fa-list'],
             ['label' => 'Categories', 'link' => 'smm_categories.php', 'icon' => 'fa-tags'],
             ['label' => 'Providers', 'link' => 'providers.php', 'icon' => 'fa-server'],
