@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMM Panel Live Link Preview PRO MAX</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* === SMM PANEL EXACT THEME VARIABLES === */
+        :root {
+            --bg-body: #0b0f19;
+            --bg-panel: #111827;
+            --bg-card: #0f1523;
+            --border-color: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --btn-green-bg: rgba(21, 128, 61, 0.2);
+            --btn-green-text: #4ade80;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        /* Input Styles */
+        .input-wrapper {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .input-wrapper input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 14px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-wrapper input:focus {
+            border-color: #3b82f6;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            display: none;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: translateY(-50%) rotate(0deg); } 100% { transform: translateY(-50%) rotate(360deg); } }
+
+        /* Link Preview Section */
+        .preview-section { display: none; }
+        .preview-section.active { display: block; }
+
+        .preview-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .preview-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* --- COMMON TOP (Avatar & Info) --- */
+        .card-top {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 15px;
+        }
+        .card-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #1e293b; /* Fallback color */
+            flex-shrink: 0;
+            border: 1px solid var(--border-color);
+        }
+        .card-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ffffff;
+            word-break: break-all;
+        }
+        .card-handle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            margin-bottom: 8px;
+        }
+        .card-bio {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+            white-space: pre-wrap;
+            margin-bottom: 15px;
+        }
+
+        /* --- STATS ROW --- */
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 0;
+            margin-bottom: 15px;
+        }
+        .yt-stats-row { border: none; padding: 0; margin-bottom: 15px; justify-content: flex-start; gap: 20px; }
+        .tk-stats-row { border: none; padding: 0; margin-bottom: 15px; justify-content: flex-start; gap: 20px; }
+        
+        .stat-item { text-align: center; flex: 1; }
+        .yt-stat-item, .tk-stat-item { text-align: left; flex: none; }
+        
+        .stat-num {
+            display: block;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            text-transform: uppercase;
+        }
+
+        /* --- BUTTONS & FOOTER --- */
+        .public-btn {
+            width: 100%;
+            background: var(--btn-green-bg);
+            color: var(--btn-green-text);
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .platform-footer {
+            text-align: right;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="input-wrapper">
+            <input type="text" id="linkInput" placeholder="Paste IG, YouTube or TikTok link..." oninput="debounceProcessLink()">
+            <div class="loader" id="loader"></div>
+        </div>
+
+        <div class="preview-section" id="previewSection">
+            <div class="preview-label">Link Preview</div>
+            <div class="preview-card" id="previewCard">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const inputEl = document.getElementById('linkInput');
+        const previewSection = document.getElementById('previewSection');
+        const previewCard = document.getElementById('previewCard');
+        const loader = document.getElementById('loader');
+
+        let debounceTimer;
+
+        // Debounce function: Typing rukne ke 800ms baad fetch karega
+        function debounceProcessLink() {
+            clearTimeout(debounceTimer);
+            previewSection.classList.remove('active');
+            
+            const url = inputEl.value.trim();
+            if (url.length === 0) {
+                loader.style.display = 'none';
+                return;
+            }
+
+            loader.style.display = 'block';
+            debounceTimer = setTimeout(() => {
+                fetchRealData(url);
+            }, 800);
+        }
+
+        // Live Fetching API (Image aur Title layegi, stats backend se aayenge ideally)
+        async function fetchRealData(url) {
+            let platform = detectPlatform(url);
+            
+            if (platform === 'unknown') {
+                loader.style.display = 'none';
+                return;
+            }
+
+            let realImage = "https://ui-avatars.com/api/?name=User&background=1e293b&color=fff";
+            let realTitle = "User Profile";
+            let realBio = "";
+            let rawDescription = "";
+
+            try {
+                // Microlink API for grabbing Profile Picture and Bio safely
+                const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+                const json = await response.json();
+
+                if (json.status === 'success') {
+                    // Image Fetching
+                    if (json.data.image && json.data.image.url) realImage = json.data.image.url;
+                    else if (json.data.logo && json.data.logo.url) realImage = json.data.logo.url;
+                    
+                    // Text Data Fetching
+                    if (json.data.title) realTitle = json.data.title;
+                    if (json.data.description) {
+                        realBio = json.data.description;
+                        rawDescription = json.data.description; 
+                    }
+                }
+            } catch (error) {
+                console.error("Live fetch failed", error);
+            }
+
+            let handle = extractHandle(url, platform);
+            
+            // Extracting Stats (Fallback to '-' if protected by platform instead of ugly N/A)
+            let extractedStats = extractStatsFromText(rawDescription, realTitle, platform);
+
+            // Clean up Bio
+            let cleanBio = realBio;
+            if (platform === 'instagram' && realBio.includes('Followers')) {
+                cleanBio = realBio.split('-')[1] ? realBio.split('-')[1].trim() : "Instagram Profile";
+            } else if (platform === 'tiktok' && realBio.includes('Likes')) {
+                cleanBio = realBio.split('|')[1] ? realBio.split('|')[1].trim() : "TikTok Profile";
+            }
+
+            // Hide Loader
+            loader.style.display = 'none';
+
+            // Render exact UI based on Platform
+            if (platform === 'instagram') {
+                renderInstagram(realImage, realTitle, handle, cleanBio, extractedStats);
+            } else if (platform === 'youtube') {
+                renderYoutube(realImage, realTitle, handle, cleanBio, extractedStats);
+            } else if (platform === 'tiktok') {
+                renderTikTok(realImage, realTitle, handle, cleanBio, extractedStats);
+            }
+        }
+
+        function detectPlatform(url) {
+            url = url.toLowerCase();
+            if (url.includes('instagram.com') || url.includes('igsh=')) return 'instagram';
+            if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('gateway1439')) return 'youtube';
+            if (url.includes('tiktok.com')) return 'tiktok';
+            return 'unknown';
+        }
+
+        function extractHandle(url, platform) {
+            try {
+                let cleanUrl = url.split('?')[0].replace(/\/$/, ""); 
+                if (platform === 'instagram') {
+                    let parts = cleanUrl.split('instagram.com/');
+                    return parts.length > 1 ? "@" + parts[1].split('/')[0] : "@instagram_user";
+                }
+                if (platform === 'youtube') {
+                    if(cleanUrl.includes('@')) return "@" + cleanUrl.split('@')[1].split('/')[0];
+                    return "Youtube User";
+                }
+                if (platform === 'tiktok') {
+                    if(cleanUrl.includes('@')) return "@" + cleanUrl.split('@')[1].split('/')[0];
+                    return "@tiktok_user";
+                }
+            } catch(e) { return "@user"; }
+            return "@user";
+        }
+
+        // --- STATS EXTRACTION (With Smart SMM Panel Fallbacks) ---
+        function extractStatsFromText(desc, title, platform) {
+            // Agar platform block karta hai, toh '-' dikhayega jo SMM panels mein professional lagta hai N/A se zyada
+            let stats = {
+                followers: "-", following: "-", posts: "-", 
+                likes: "-", subscribers: "-", videos: "-"
+            };
+            
+            if (!desc && !title) return stats;
+            const fullText = (desc + " " + title).replace(/,/g, ''); 
+
+            if (platform === 'instagram') {
+                let folMatch = fullText.match(/([\d.]+[KkMmB]*)\s*Followers/i);
+                if (folMatch) stats.followers = folMatch[1].toUpperCase();
+
+                let flwMatch = fullText.match(/([\d.]+[KkMmB]*)\s*Following/i);
+                if (flwMatch) stats.following = flwMatch[1].toUpperCase();
+
+                let postMatch = fullText.match(/([\d.]+[KkMmB]*)\s*Posts/i);
+                if (postMatch) stats.posts = postMatch[1].toUpperCase();
+            } 
+            else if (platform === 'tiktok') {
+                let folMatch = fullText.match(/([\d.]+[KkMmB]*)\s*Followers/i);
+                if (folMatch) stats.followers = folMatch[1].toUpperCase();
+
+                let likeMatch = fullText.match(/([\d.]+[KkMmB]*)\s*Likes/i);
+                if (likeMatch) stats.likes = likeMatch[1].toUpperCase();
+            }
+            else if (platform === 'youtube') {
+                let subMatch = fullText.match(/([\d.]+[KkMmB]*)\s*subscribers/i);
+                if (subMatch) stats.subscribers = subMatch[1].toUpperCase();
+                
+                let vidMatch = fullText.match(/([\d.]+[KkMmB]*)\s*videos/i);
+                if (vidMatch) stats.videos = vidMatch[1].toUpperCase();
+            }
+
+            return stats;
+        }
+
+        // --- RENDERERS ---
+        function renderInstagram(img, title, handle, bio, stats) {
+            previewCard.innerHTML = `
+                <div class="card-top">
+                    <img src="${img}" alt="Avatar" class="card-avatar">
+                    <div class="card-info">
+                        <div class="card-title">${title}</div>
+                        <div class="card-handle">${handle}</div>
+                    </div>
+                </div>
+                <div class="card-bio">${bio || "Instagram Profile"}</div>
+                <div class="stats-row">
+                    <div class="stat-item"><span class="stat-num">${stats.posts}</span><span class="stat-label">posts</span></div>
+                    <div class="stat-item"><span class="stat-num">${stats.followers}</span><span class="stat-label">followers</span></div>
+                    <div class="stat-item"><span class="stat-num">${stats.following}</span><span class="stat-label">following</span></div>
+                </div>
+                <button class="public-btn">This account is public</button>
+                <div class="platform-footer">Instagram Profile</div>
+            `;
+            previewSection.classList.add('active');
+        }
+
+        function renderYoutube(img, title, handle, bio, stats) {
+            previewCard.innerHTML = `
+                <div class="card-top">
+                    <img src="${img}" alt="Avatar" class="card-avatar">
+                    <div class="card-info">
+                        <div class="card-title" style="text-transform: uppercase;">${title}</div>
+                        <div class="card-handle">${handle}</div>
+                        <div class="yt-stats-row" style="display:flex;">
+                            <div class="yt-stat-item"><span class="stat-num">${stats.subscribers}</span><span class="stat-label">SUBSCRIBERS</span></div>
+                            <div class="yt-stat-item"><span class="stat-num">${stats.videos}</span><span class="stat-label">VIDEOS</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-bio">${bio || "Youtube Channel"}</div>
+                <div class="platform-footer">Youtube Channel</div>
+            `;
+            previewSection.classList.add('active');
+        }
+
+        function renderTikTok(img, title, handle, bio, stats) {
+            previewCard.innerHTML = `
+                <div class="card-top">
+                    <img src="${img}" alt="Avatar" class="card-avatar">
+                    <div class="card-info">
+                        <div class="card-title">${title}</div>
+                        <div class="card-handle">${handle}</div>
+                    </div>
+                </div>
+                <div class="tk-stats-row" style="display:flex;">
+                    <div class="tk-stat-item"><span class="stat-num">${stats.followers}</span><span class="stat-label" style="text-transform:none;">Followers</span></div>
+                    <div class="tk-stat-item"><span class="stat-num">${stats.likes}</span><span class="stat-label" style="text-transform:none;">Likes</span></div>
+                </div>
+                <div class="card-bio">${bio || "TikTok Profile"}</div>
+                <div class="platform-footer">TikTok Account</div>
+            `;
+            previewSection.classList.add('active');
+        }
+    </script>
+</body>
+</html>
